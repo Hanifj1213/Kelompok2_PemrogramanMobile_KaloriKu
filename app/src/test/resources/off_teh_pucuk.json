@@ -1,0 +1,25 @@
+{
+ "status": 1,
+ "product": {
+  "brands": "Mayora",
+  "product_name": "Teh Pucuk Harum Jasmine 350 ml",
+  "serving_quantity": 240,
+  "nutriments": {
+   "carbohydrates": 7.5,
+   "carbohydrates_100g": 7.5,
+   "carbohydrates_serving": 18,
+   "energy-kcal": 29.1666666666667,
+   "energy-kcal_100g": 29.1666666666667,
+   "energy-kcal_serving": 70,
+   "fat": 0,
+   "fat_100g": 0,
+   "fat_serving": 0,
+   "proteins": 0,
+   "proteins_100g": 0,
+   "proteins_serving": 0,
+   "saturated-fat": 0,
+   "saturated-fat_100g": 0,
+   "saturated-fat_serving": 0
+  }
+ }
+}

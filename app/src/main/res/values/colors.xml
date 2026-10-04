@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Warna latar jendela, dipakai sebelum Compose menggambar isinya. -->
+    <color name="window_background">#F5F8F6</color>
+</resources>
