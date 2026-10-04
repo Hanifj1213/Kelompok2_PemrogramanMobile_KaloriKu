@@ -114,7 +114,7 @@ fun HistoryScreen(
 
         days.forEach { date ->
             val dayEntries = byDate.getValue(date)
-            item(key = "header-$date") {
+            stickyHeader(key = "header-$date") {
                 DayHeader(date = date, entries = dayEntries, target = target)
             }
             items(dayEntries, key = { it.id }) { entry ->
@@ -227,7 +227,8 @@ private fun DayHeader(date: LocalDate, entries: List<MealEntry>, target: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = Spacing.sm),
+            .background(MaterialTheme.colorScheme.background)
+            .padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {

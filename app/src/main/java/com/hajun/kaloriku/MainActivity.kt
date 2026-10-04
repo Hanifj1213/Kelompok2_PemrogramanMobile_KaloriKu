@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -136,6 +140,23 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            floatingActionButton = {
+                // Tombol "Catat" muncul di layar tab; lembar pilihan sama untuk semua cara.
+                if (showBottomBar) {
+                    ExtendedFloatingActionButton(
+                        onClick = { requestedMeal = null; showAddSheet = true },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_add),
+                                contentDescription = null
+                            )
+                        },
+                        text = { Text("Catat") },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            },
             bottomBar = {
                 AnimatedVisibility(
                     visible = showBottomBar,

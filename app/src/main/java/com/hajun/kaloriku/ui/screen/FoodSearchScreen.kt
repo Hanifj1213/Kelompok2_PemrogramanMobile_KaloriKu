@@ -230,7 +230,7 @@ private fun FoodRow(food: Food, onClick: () -> Unit, modifier: Modifier = Modifi
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = food.caloriesPer100g.formatWhole(),
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum")
                 )
                 Text(
                     text = "kkal/100g",
