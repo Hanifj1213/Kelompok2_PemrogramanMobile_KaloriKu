@@ -37,10 +37,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,7 +58,6 @@ import com.hajun.kaloriku.data.CalorieCalculator
 import com.hajun.kaloriku.data.Gender
 import com.hajun.kaloriku.data.Goal
 import com.hajun.kaloriku.data.Profile
-import com.hajun.kaloriku.health.HealthConnectManager
 import com.hajun.kaloriku.ui.MainViewModel
 import com.hajun.kaloriku.ui.components.AppCard
 import com.hajun.kaloriku.ui.components.IconBadge
@@ -76,16 +73,14 @@ private val AGE_RANGE = 10..100
 private val WEIGHT_RANGE = 20.0..300.0
 private val HEIGHT_RANGE = 100.0..250.0
 
-/** Profil pengguna, status gizi (IMT), langkah harian, dan pengaturan pengingat. */
+/** Profil pengguna, status gizi (IMT), dan pengaturan pengingat. */
 @Composable
 fun ProfileScreen(
     viewModel: MainViewModel,
-    onOpenWeight: () -> Unit,
     onOpenGoals: () -> Unit
 ) {
     val context = LocalContext.current
     val existing by viewModel.profile.collectAsStateWithLifecycle()
-    val weights by viewModel.weightEntries.collectAsStateWithLifecycle()
     val goals by viewModel.dailyGoals.collectAsStateWithLifecycle()
 
     var gender by rememberSaveable { mutableStateOf(existing?.gender ?: Gender.PRIA) }
@@ -99,19 +94,6 @@ fun ProfileScreen(
     var notificationDenied by rememberSaveable { mutableStateOf(false) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         notificationDenied = !granted
-    }
-    var steps by remember { mutableStateOf<Long?>(null) }
-    var healthMessage by remember { mutableStateOf<String?>(null) }
-
-    val health = remember { HealthConnectManager.create(context) }
-    val latestWeight = remember(weights) { weights.maxByOrNull { it.date } }
-
-    LaunchedEffect(Unit) {
-        if (health.isAvailable) {
-            steps = health.todaySteps()
-        } else {
-            healthMessage = "Health Connect tidak tersedia di perangkat ini."
-        }
     }
 
     val ageValue = age.trim().toIntOrNull()?.takeIf { it in AGE_RANGE }
@@ -151,7 +133,7 @@ fun ProfileScreen(
             }
         }
 
-        item { ProfileHeader(profile = profile, latestWeight = latestWeight) }
+        item { ProfileHeader(profile = profile) }
 
         if (profile != null) {
             item { TargetCard(profile = profile) }
@@ -246,7 +228,7 @@ fun ProfileScreen(
         }
 
         if (profile != null) {
-            item { BmiCard(profile = profile, latestWeight = latestWeight?.weightKg) }
+            item { BmiCard(profile = profile) }
         }
 
         item {
@@ -294,48 +276,14 @@ fun ProfileScreen(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ShortcutTile(
-                    icon = R.drawable.ic_monitor_weight_fill,
-                    label = "Berat badan",
-                    detail = latestWeight?.let { "${it.weightKg.formatDecimal()} kg" } ?: "Belum ada",
-                    tint = Color(0xFF6366F1),
-                    onClick = onOpenWeight,
-                    modifier = Modifier.weight(1f)
-                )
-                ShortcutTile(
-                    icon = R.drawable.ic_flag_fill,
-                    label = "Target gizi",
-                    detail = "${goals.calories.formatWhole()} kkal",
-                    tint = Green600,
-                    onClick = onOpenGoals,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            AppCard(modifier = Modifier.fillMaxWidth(), spacing = 8.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconBadge(icon = R.drawable.ic_footprint, tint = Color(0xFF0EA5E9), size = 40.dp, iconSize = 20.dp)
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp)
-                    ) {
-                        Text("Health Connect", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            text = when {
-                                healthMessage != null -> healthMessage!!
-                                steps != null -> "${(steps ?: 0L).toInt().formatWhole()} langkah hari ini"
-                                else -> "Izin belum diberikan atau data langkah belum ada."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+            ShortcutTile(
+                icon = R.drawable.ic_flag_fill,
+                label = "Target gizi",
+                detail = "${goals.calories.formatWhole()} kkal",
+                tint = Green600,
+                onClick = onOpenGoals,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         item {
@@ -363,7 +311,7 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeader(profile: Profile?, latestWeight: com.hajun.kaloriku.data.WeightEntry?) {
+private fun ProfileHeader(profile: Profile?) {
     AppCard(modifier = Modifier.fillMaxWidth(), spacing = 14.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -403,7 +351,7 @@ private fun ProfileHeader(profile: Profile?, latestWeight: com.hajun.kaloriku.da
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile(
                     label = "Berat",
-                    value = (latestWeight?.weightKg ?: profile.weightKg).formatDecimal(),
+                    value = profile.weightKg.formatDecimal(),
                     unit = "kg",
                     modifier = Modifier.weight(1f)
                 )
@@ -483,8 +431,8 @@ private fun TargetCard(profile: Profile) {
 
 /** Kartu status gizi berdasarkan IMT (indeks massa tubuh). */
 @Composable
-private fun BmiCard(profile: Profile, latestWeight: Double?) {
-    val weight = latestWeight ?: profile.weightKg
+private fun BmiCard(profile: Profile) {
+    val weight = profile.weightKg
     val heightM = profile.heightCm / 100.0
     if (heightM <= 0) return
     val bmi = weight / (heightM * heightM)

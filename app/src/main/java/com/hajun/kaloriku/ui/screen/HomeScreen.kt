@@ -1,6 +1,5 @@
 package com.hajun.kaloriku.ui.screen
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -31,9 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hajun.kaloriku.R
@@ -50,48 +46,35 @@ import com.hajun.kaloriku.ui.components.IconBadge
 import com.hajun.kaloriku.ui.components.MealEntryCard
 import com.hajun.kaloriku.ui.components.PrimaryButton
 import com.hajun.kaloriku.ui.components.SectionHeader
-import com.hajun.kaloriku.ui.components.StepButton
-import com.hajun.kaloriku.ui.components.clipPill
 import com.hajun.kaloriku.ui.components.tapNoRipple
 import com.hajun.kaloriku.ui.components.accent
 import com.hajun.kaloriku.ui.components.iconRes
 import com.hajun.kaloriku.ui.theme.Green600
 import com.hajun.kaloriku.ui.theme.Green700
 import com.hajun.kaloriku.ui.theme.Orange500
-import com.hajun.kaloriku.ui.theme.WaterColor
-import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatRelativeDay
-import com.hajun.kaloriku.util.formatVolume
 import com.hajun.kaloriku.util.formatWhole
 import com.hajun.kaloriku.util.greetingFor
 import com.hajun.kaloriku.util.toLocalDate
 import java.time.LocalDate
 import java.time.LocalTime
 import androidx.compose.foundation.layout.statusBarsPadding
-import com.hajun.kaloriku.ui.components.SecondaryButton
 
 /**
- * Layar utama: sapaan, cincin kalori, capaian gizi, air minum,
- * pintasan pencatatan, dan daftar makanan hari ini per waktu makan.
+ * Layar utama: sapaan, cincin kalori, capaian gizi,
+ * dan daftar makanan hari ini per waktu makan.
  */
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
-    onCamera: () -> Unit,
-    onGallery: () -> Unit,
     onAddMeal: (MealType) -> Unit,
     onOpenProfile: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenSearch: () -> Unit,
-    onOpenBarcode: () -> Unit,
-    onOpenVoice: () -> Unit,
     onOpenGoals: () -> Unit
 ) {
-    val context = LocalContext.current
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val goals by viewModel.dailyGoals.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
-    val waterEntries by viewModel.waterEntries.collectAsStateWithLifecycle()
 
     val today = LocalDate.now()
     val todayEntries = remember(entries, today) {
@@ -108,8 +91,6 @@ fun HomeScreen(
             fatG = items.sumOf { it.fatG }
         )
     }
-    val streak = remember(entries) { Stats.streak(entries, today) }
-    val waterToday = remember(waterEntries, today) { Stats.waterGlasses(today, waterEntries) }
 
     LazyColumn(
         modifier = Modifier
@@ -119,7 +100,7 @@ fun HomeScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item { HomeHeader(streak = streak, onOpenProfile = onOpenProfile) }
+        item { HomeHeader(onOpenProfile = onOpenProfile) }
 
         item {
             CalorieHeroCard(
@@ -130,24 +111,6 @@ fun HomeScreen(
         }
 
         item { MacroCard(totals = todayTotals, goals = goals, onOpenGoals = onOpenGoals) }
-
-        item {
-            QuickActionCard(
-                onCamera = onCamera,
-                onGallery = onGallery,
-                onSearch = onOpenSearch,
-                onBarcode = onOpenBarcode,
-                onVoice = onOpenVoice
-            )
-        }
-
-        item {
-            WaterCard(
-                glasses = waterToday,
-                onAdd = viewModel::addWater,
-                onRemove = viewModel::removeWaterToday
-            )
-        }
 
         if (profile == null) {
             item { ProfilePromptCard(onOpenProfile = onOpenProfile) }
@@ -162,7 +125,7 @@ fun HomeScreen(
                 EmptyState(
                     icon = R.drawable.ic_no_food,
                     title = "Belum ada catatan",
-                    message = "Foto makananmu, atau catat lewat pencarian, barcode, dan suara."
+                    message = "Foto makananmu, atau catat lewat pencarian dan barcode."
                 )
             }
         } else {
@@ -186,21 +149,6 @@ fun HomeScreen(
         }
 
         item {
-            ShareRow(
-                onShare = {
-                    if (!viewModel.shareTodaySummary(context)) {
-                        Toast.makeText(context, "Belum ada catatan hari ini.", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                onExport = {
-                    if (!viewModel.exportCsv(context)) {
-                        Toast.makeText(context, "Belum ada catatan untuk diekspor.", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-        }
-
-        item {
             Text(
                 text = "Nilai gizi dari foto adalah perkiraan AI. Data pencarian memakai TKPI Kemenkes.",
                 style = MaterialTheme.typography.bodySmall,
@@ -212,25 +160,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun ShareRow(onShare: () -> Unit, onExport: () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SecondaryButton(
-            text = "Bagikan",
-            icon = R.drawable.ic_share,
-            onClick = onShare,
-            modifier = Modifier.weight(1f)
-        )
-        SecondaryButton(
-            text = "Ekspor CSV",
-            icon = R.drawable.ic_download,
-            onClick = onExport,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun HomeHeader(streak: Int, onOpenProfile: () -> Unit) {
+private fun HomeHeader(onOpenProfile: () -> Unit) {
     val hour = remember { LocalTime.now().hour }
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
@@ -243,29 +173,6 @@ private fun HomeHeader(streak: Int, onOpenProfile: () -> Unit) {
                 text = LocalDate.now().formatRelativeDay(),
                 style = MaterialTheme.typography.headlineSmall
             )
-        }
-        if (streak > 0) {
-            Row(
-                modifier = Modifier
-                    .clipPill()
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_local_fire_department_fill),
-                    contentDescription = null,
-                    tint = Orange500,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "$streak hari",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-            Spacer(modifier = Modifier.width(6.dp))
         }
         IconButton(onClick = onOpenProfile) {
             IconBadge(
@@ -394,99 +301,6 @@ private fun MacroCard(totals: FoodItem, goals: com.hajun.kaloriku.data.DailyGoal
             )
         }
         MacroRingsRow(totals = totals, goals = goals)
-    }
-}
-
-@Composable
-private fun QuickActionCard(
-    onCamera: () -> Unit,
-    onGallery: () -> Unit,
-    onSearch: () -> Unit,
-    onBarcode: () -> Unit,
-    onVoice: () -> Unit
-) {
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = 14.dp) {
-        Text("Catat makanan", style = MaterialTheme.typography.titleMedium)
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            item { QuickAction(icon = R.drawable.ic_photo_camera, label = "Foto", tint = Green600, onClick = onCamera) }
-            item { QuickAction(icon = R.drawable.ic_image, label = "Galeri", tint = Color(0xFF6366F1), onClick = onGallery) }
-            item { QuickAction(icon = R.drawable.ic_search, label = "Cari", tint = Color(0xFF0EA5E9), onClick = onSearch) }
-            item { QuickAction(icon = R.drawable.ic_barcode_scanner, label = "Barcode", tint = Color(0xFFF59E0B), onClick = onBarcode) }
-            item { QuickAction(icon = R.drawable.ic_mic, label = "Suara", tint = Color(0xFFEC4899), onClick = onVoice) }
-        }
-    }
-}
-
-@Composable
-private fun QuickAction(
-    icon: Int,
-    label: String,
-    tint: Color,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .tapNoRipple(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 6.dp)
-    ) {
-        IconBadge(icon = icon, tint = tint, size = 50.dp, iconSize = 24.dp, shape = RoundedCornerShape(18.dp))
-        Text(text = label, style = MaterialTheme.typography.labelSmall)
-    }
-}
-
-@Composable
-private fun WaterCard(glasses: Int, onAdd: () -> Unit, onRemove: () -> Unit) {
-    val target = 8
-    val progress = (glasses.toFloat() / target).coerceIn(0f, 1f)
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = 12.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(icon = R.drawable.ic_water_drop_fill, tint = WaterColor)
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
-            ) {
-                Text("Air minum", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = "$glasses dari $target gelas · ${formatVolume(glasses * 250)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            StepButton(
-                icon = R.drawable.ic_remove,
-                contentDescription = "Kurangi satu gelas",
-                onClick = onRemove,
-                enabled = glasses > 0
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            StepButton(
-                icon = R.drawable.ic_add,
-                contentDescription = "Tambah satu gelas",
-                onClick = onAdd
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp)
-                .clip(RoundedCornerShape(50))
-                .background(WaterColor.copy(alpha = 0.15f))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress)
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(WaterColor)
-            )
-        }
     }
 }
 

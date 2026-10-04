@@ -29,7 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -40,13 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hajun.kaloriku.data.DailyGoals
 import com.hajun.kaloriku.data.FoodItem
-import com.hajun.kaloriku.data.WeightEntry
 import com.hajun.kaloriku.ui.theme.CarbsColor
 import com.hajun.kaloriku.ui.theme.FatColor
 import com.hajun.kaloriku.ui.theme.ProteinColor
 import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatWhole
-import java.time.LocalDate
 
 /**
  * Cincin kemajuan berbentuk busur 300 derajat, dipakai sebagai angka utama di Beranda
@@ -371,88 +368,6 @@ fun WeeklyBarChart(
         }
     }
 }
-
-/** Grafik garis sederhana untuk perkembangan berat badan. */
-@Composable
-fun WeightLineChart(
-    entries: List<WeightEntry>,
-    modifier: Modifier = Modifier,
-    height: Dp = 170.dp,
-    lineColor: Color = MaterialTheme.colorScheme.primary
-) {
-    val sorted = entries.sortedBy { it.date }
-    val weights = sorted.map { it.weightKg }
-    if (weights.size < 2) return
-    val min = weights.min()
-    val max = weights.max()
-    val span = (max - min).coerceAtLeast(1.0)
-
-    Box(modifier = modifier.fillMaxWidth()) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(height)
-        ) {
-            val stepX = size.width / (weights.size - 1)
-            val points = weights.mapIndexed { index, weight ->
-                val ratio = ((weight - min) / span).toFloat()
-                Offset(x = stepX * index, y = size.height - ratio * (size.height - 24.dp.toPx()) - 12.dp.toPx())
-            }
-
-            val line = Path().apply {
-                moveTo(points.first().x, points.first().y)
-                points.drop(1).forEach { lineTo(it.x, it.y) }
-            }
-            val fill = Path().apply {
-                addPath(line)
-                lineTo(points.last().x, size.height)
-                lineTo(points.first().x, size.height)
-                close()
-            }
-
-            drawPath(
-                path = fill,
-                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                    colors = listOf(lineColor.copy(alpha = 0.22f), lineColor.copy(alpha = 0.0f))
-                )
-            )
-            drawPath(
-                path = line,
-                color = lineColor,
-                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-            )
-            points.forEachIndexed { index, point ->
-                val isLast = index == points.lastIndex
-                drawCircle(
-                    color = if (isLast) lineColor else lineColor.copy(alpha = 0.55f),
-                    radius = if (isLast) 5.dp.toPx() else 3.dp.toPx(),
-                    center = point
-                )
-            }
-        }
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 2.dp)
-        ) {
-            Text(
-                text = "${max.formatDecimal()} kg",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Column(modifier = Modifier.align(Alignment.BottomStart)) {
-            Text(
-                text = "${min.formatDecimal()} kg",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-/** Label tanggal ringkas untuk grafik berat badan. */
-fun LocalDate.chartLabel(): String = "${dayOfMonth}/${monthValue}"
 
 private const val GAUGE_START = 150f
 private const val GAUGE_SWEEP = 300f

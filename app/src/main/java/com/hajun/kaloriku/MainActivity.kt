@@ -47,9 +47,6 @@ import com.hajun.kaloriku.ui.screen.HistoryScreen
 import com.hajun.kaloriku.ui.screen.HomeScreen
 import com.hajun.kaloriku.ui.screen.ProfileScreen
 import com.hajun.kaloriku.ui.screen.ResultScreen
-import com.hajun.kaloriku.ui.screen.VoiceScreen
-import com.hajun.kaloriku.ui.screen.WeeklyScreen
-import com.hajun.kaloriku.ui.screen.WeightScreen
 import com.hajun.kaloriku.ui.theme.KaloriKuTheme
 
 class MainActivity : ComponentActivity() {
@@ -67,13 +64,10 @@ class MainActivity : ComponentActivity() {
 object Routes {
     const val HOME = "home"
     const val HISTORY = "history"
-    const val WEEKLY = "weekly"
     const val PROFILE = "profile"
     const val RESULT = "result"
     const val SEARCH = "search"
     const val BARCODE = "barcode"
-    const val VOICE = "voice"
-    const val WEIGHT = "weight"
     const val GOALS = "goals"
 }
 
@@ -128,10 +122,6 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 viewModel.resetBarcode()
                 navController.popBackStackOrHome()
             }
-            Routes.VOICE -> {
-                viewModel.resetVoice()
-                navController.popBackStackOrHome()
-            }
             else -> navController.popBackStackOrHome()
         }
     }
@@ -167,31 +157,21 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 composable(Routes.HOME) {
                     HomeScreen(
                         viewModel = viewModel,
-                        onCamera = { requestedMeal = null; photoInput.takePhoto() },
-                        onGallery = { requestedMeal = null; photoInput.pickGallery() },
                         onAddMeal = { type -> requestedMeal = type; showAddSheet = true },
                         onOpenProfile = { navController.switchTab(Routes.PROFILE) },
                         onOpenHistory = { navController.switchTab(Routes.HISTORY) },
-                        onOpenSearch = { requestedMeal = null; openSearch(newMeal = true) },
-                        onOpenBarcode = { navController.navigate(Routes.BARCODE) },
-                        onOpenVoice = { navController.navigate(Routes.VOICE) },
                         onOpenGoals = { navController.navigate(Routes.GOALS) }
                     )
                 }
                 composable(Routes.HISTORY) {
                     HistoryScreen(
                         viewModel = viewModel,
-                        onOpenWeekly = { navController.switchTab(Routes.WEEKLY) },
                         onAddFood = { requestedMeal = null; showAddSheet = true }
                     )
-                }
-                composable(Routes.WEEKLY) {
-                    WeeklyScreen(viewModel = viewModel, onOpenWeight = { navController.navigate(Routes.WEIGHT) })
                 }
                 composable(Routes.PROFILE) {
                     ProfileScreen(
                         viewModel = viewModel,
-                        onOpenWeight = { navController.navigate(Routes.WEIGHT) },
                         onOpenGoals = { navController.navigate(Routes.GOALS) }
                     )
                 }
@@ -227,19 +207,6 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                         }
                     )
                 }
-                composable(Routes.VOICE) {
-                    VoiceScreen(
-                        viewModel = viewModel,
-                        onResult = { navController.openResult() },
-                        onBack = {
-                            viewModel.resetVoice()
-                            navController.popBackStackOrHome()
-                        }
-                    )
-                }
-                composable(Routes.WEIGHT) {
-                    WeightScreen(viewModel = viewModel, onBack = { navController.popBackStackOrHome() })
-                }
                 composable(Routes.GOALS) {
                     GoalsScreen(viewModel = viewModel, onBack = { navController.popBackStackOrHome() })
                 }
@@ -264,10 +231,6 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 onBarcode = {
                     showAddSheet = false
                     navController.navigate(Routes.BARCODE)
-                },
-                onVoice = {
-                    showAddSheet = false
-                    navController.navigate(Routes.VOICE)
                 }
             )
         }

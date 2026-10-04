@@ -70,9 +70,6 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.barcode.scanning)
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.material3)
-    implementation(libs.androidx.health.connect.client)
     implementation(libs.androidx.core.splashscreen)
     testImplementation(libs.junit)
     // org.json bawaan Android hanya stub saat unit test di JVM, jadi pakai implementasi asli.

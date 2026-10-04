@@ -4,10 +4,7 @@ import com.hajun.kaloriku.data.FoodItem
 import com.hajun.kaloriku.data.MealEntry
 import com.hajun.kaloriku.data.MealType
 import com.hajun.kaloriku.data.Stats
-import com.hajun.kaloriku.data.WaterEntry
-import com.hajun.kaloriku.data.WeightEntry
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
@@ -41,36 +38,6 @@ class StatsTest {
     }
 
     @Test
-    fun streak_countsConsecutiveDaysIncludingToday() {
-        val entries = listOf(
-            entry("2026-10-02"),
-            entry("2026-10-01"),
-            entry("2026-09-30"),
-            entry("2026-09-28")
-        )
-        assertEquals(3, Stats.streak(entries, LocalDate.parse("2026-10-02")))
-    }
-
-    @Test
-    fun streak_startsFromYesterdayWhenTodayEmpty() {
-        val entries = listOf(entry("2026-10-01"), entry("2026-09-30"))
-        // Hari ini (2 Okt) belum dicatat, rantai dihitung dari kemarin
-        assertEquals(2, Stats.streak(entries, LocalDate.parse("2026-10-02")))
-    }
-
-    @Test
-    fun streak_zeroWhenNoEntries() {
-        assertEquals(0, Stats.streak(emptyList(), LocalDate.parse("2026-10-02")))
-    }
-
-    @Test
-    fun streak_zeroWhenGapBeforeToday() {
-        // Catatan terakhir 3 hari lalu, jadi tidak ada rentetan
-        val entries = listOf(entry("2026-09-29"))
-        assertEquals(0, Stats.streak(entries, LocalDate.parse("2026-10-02")))
-    }
-
-    @Test
     fun weeklySummaries_computesAveragesAndInsights() {
         val entries = listOf(
             entry("2026-09-28", 1000.0, 20.0),
@@ -95,28 +62,5 @@ class StatsTest {
         val summary = Stats.weeklySummaries(emptyList(), days, 2000, 60)
         assertEquals(0, summary.recordedDays)
         assertEquals(true, summary.insights.first().contains("Belum ada catatan"))
-    }
-
-    @Test
-    fun waterGlasses_sumsOnlyThatDay() {
-        val entries = listOf(
-            WaterEntry(1, millis("2026-10-01", 8), 1),
-            WaterEntry(2, millis("2026-10-01", 10), 2),
-            WaterEntry(3, millis("2026-10-02", 9), 5)
-        )
-        assertEquals(3, Stats.waterGlasses(LocalDate.parse("2026-10-01"), entries))
-        assertEquals(5, Stats.waterGlasses(LocalDate.parse("2026-10-02"), entries))
-    }
-
-    @Test
-    fun weightChange_needsTwoRecords() {
-        assertNull(Stats.weightChange(listOf(WeightEntry(LocalDate.parse("2026-10-01"), 60.0))))
-        val change = Stats.weightChange(
-            listOf(
-                WeightEntry(LocalDate.parse("2026-10-01"), 62.0),
-                WeightEntry(LocalDate.parse("2026-09-01"), 65.0)
-            )
-        )
-        assertEquals(-3.0, change!!, 0.01)
     }
 }

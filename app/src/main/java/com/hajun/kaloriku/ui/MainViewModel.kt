@@ -25,7 +25,6 @@ import com.hajun.kaloriku.data.MealEntry
 import com.hajun.kaloriku.data.MealType
 import com.hajun.kaloriku.data.Profile
 import com.hajun.kaloriku.data.Stats
-import com.hajun.kaloriku.data.WeightEntry
 import com.hajun.kaloriku.util.ImageUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -39,10 +38,6 @@ import java.io.IOException
 import java.time.LocalDate
 import java.time.LocalTime
 import com.hajun.kaloriku.util.toLocalDate
-import com.hajun.kaloriku.data.sumNutrition
-import com.hajun.kaloriku.util.CsvExport
-import com.hajun.kaloriku.util.ShareCard
-import com.hajun.kaloriku.util.formatDayTitle
 
 sealed interface AnalysisState {
     data object Idle : AnalysisState
@@ -72,14 +67,6 @@ sealed interface BarcodeState {
     data class Error(val message: String) : BarcodeState
 }
 
-/** Status pengenalan suara menjadi daftar makanan. */
-sealed interface VoiceState {
-    data object Idle : VoiceState
-    data object Loading : VoiceState
-    data class Success(val items: List<FoodItem>, val transcript: String) : VoiceState
-    data class Error(val message: String) : VoiceState
-}
-
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val container = (application as KaloriKuApp).container
@@ -89,8 +76,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val entries: StateFlow<List<MealEntry>> = repository.entries
     val profile: StateFlow<Profile?> = repository.profile
-    val waterEntries = repository.waterEntries
-    val weightEntries = repository.weightEntries
 
     val remindersEnabled = repository.remindersEnabled
 
@@ -119,14 +104,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var barcodeState by mutableStateOf<BarcodeState>(BarcodeState.Idle)
         private set
 
-    // --- Suara ---
-    var voiceState by mutableStateOf<VoiceState>(VoiceState.Idle)
-        private set
-
     private var lastJpeg: ByteArray? = null
     private var analysisJob: Job? = null
     private var barcodeJob: Job? = null
-    private var voiceJob: Job? = null
 
     // ------------------------------------------------------------------ foto
 
@@ -218,45 +198,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ----------------------------------------------------------------- suara
 
-    /** Mengubah kalimat seperti "saya makan nasi goreng dan telur dadar" jadi daftar makanan. */
-    fun analyzeVoice(transcript: String) {
-        voiceJob?.cancel()
-        voiceState = VoiceState.Loading
-        voiceJob = viewModelScope.launch {
-            voiceState = try {
-                val items = ai.extractFoodsFromText(transcript)
-                ensureActive()
-                if (items.isEmpty()) {
-                    VoiceState.Error(
-                        "Tidak ada makanan yang dikenali dari ucapanmu. Coba sebutkan nama makanannya."
-                    )
-                } else {
-                    VoiceState.Success(items, transcript)
-                }
-            } catch (e: AiException) {
-                VoiceState.Error(e.message ?: "Gagal mengenali ucapan.")
-            }
-        }
-    }
-
-    fun addVoiceResult(items: List<FoodItem>) {
-        resetAnalysis()
-        resetVoice()
-        editableItems.addAll(items.map { EditableItem(it) })
-        mealType = MealType.fromHour(LocalTime.now().hour)
-        analysisState = AnalysisState.Success(
-            AnalysisResult(isFood = true, items = items, note = "Diambil dari input suara.")
-        )
-        photo = null
-        voiceState = VoiceState.Idle
-    }
-
-    fun resetVoice() {
-        voiceJob?.cancel()
-        voiceJob = null
-        voiceState = VoiceState.Idle
-    }
-
     fun startManualMeal() = resetAnalysis()
 
     // ------------------------------------------------------------ input manual
@@ -330,14 +271,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (enabled) MealReminderWorker.scheduleAll(context) else MealReminderWorker.cancelAll(context)
     }
 
-    fun addWater() = repository.addWater()
-
-    fun removeWaterToday() = repository.removeLastWater(LocalDate.now())
-
-    fun saveWeight(date: LocalDate, weightKg: Double) = repository.saveWeight(date, weightKg)
-
-    fun deleteWeight(date: LocalDate) = repository.deleteWeight(date)
-
     // ----------------------------------------------------------------- bantuan
 
     fun todayEntries(): List<MealEntry> {
@@ -346,48 +279,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun todaySummary() = Stats.summarize(LocalDate.now(), entries.value)
-
-    fun currentStreak(): Int = Stats.streak(entries.value, LocalDate.now())
-
-    fun waterToday(): Int = Stats.waterGlasses(LocalDate.now(), waterEntries.value)
-
-    fun latestWeight(): WeightEntry? = weightEntries.value.maxByOrNull { it.date }
-
-    /** Mengecek apakah pengguna sudah mencatat berat hari ini. */
-    fun hasWeightToday(): Boolean = weightEntries.value.any { it.date == LocalDate.now() }
-
-    // -------------------------------------------------------------- berbagi
-
-    /**
-     * Membuat gambar ringkasan hari ini lalu membuka lembar berbagi Android.
-     * Mengembalikan false kalau belum ada catatan hari ini.
-     */
-    fun shareTodaySummary(context: android.content.Context): Boolean {
-        val today = LocalDate.now()
-        val todayEntries = entries.value.filter { it.timestamp.toLocalDate() == today }
-        if (todayEntries.isEmpty()) return false
-
-        val bitmap = ShareCard.renderSummary(
-            context = context,
-            date = today.formatDayTitle(),
-            totals = todayEntries.flatMap { it.items }.sumNutrition(),
-            target = dailyGoals.value.calories,
-            goals = dailyGoals.value,
-            water = Stats.waterGlasses(today, waterEntries.value),
-            streak = Stats.streak(entries.value, today),
-            itemCount = todayEntries.sumOf { it.items.size }
-        )
-        ShareCard.shareBitmap(context, bitmap)
-        return true
-    }
-
-    /** Mengekspor seluruh catatan ke CSV. Mengembalikan false kalau belum ada catatan. */
-    fun exportCsv(context: android.content.Context): Boolean {
-        val all = entries.value
-        if (all.isEmpty()) return false
-        ShareCard.shareCsv(context, CsvExport.build(all), CsvExport.fileName(LocalDate.now()))
-        return true
-    }
 
     private fun resetAnalysis() {
         analysisJob?.cancel()

@@ -1,6 +1,3 @@
 <resources>
     <string name="app_name">KaloriKu</string>
-    <string name="widget_label">Sisa Kalori Hari Ini</string>
-    <string name="widget_description">Menampilkan sisa kalori dan jumlah air minum hari ini tanpa membuka aplikasi.</string>
-    <string name="widget_loading">Memuat data…</string>
 </resources>

@@ -4,7 +4,7 @@ import java.time.LocalDate
 import com.hajun.kaloriku.util.toLocalDate
 
 /**
- * Hitungan statistik yang dipakai layar Beranda, Riwayat, dan laporan mingguan.
+ * Hitungan statistik yang dipakai layar Beranda dan Riwayat.
  * Semua fungsi di sini murni (tanpa akses Android) supaya mudah diuji.
  */
 object Stats {
@@ -29,24 +29,6 @@ object Stats {
             fatG = dayItems.sumOf { it.fatG },
             entries = entries.count { it.timestamp.toLocalDate() == date }
         )
-    }
-
-    /**
-     * Jumlah hari berturut-turut (termasuk hari ini) yang punya minimal satu catatan.
-     * Kalau hari ini belum ada catatan, hitungan dimulai dari kemarin supaya
-     * rentetan tidak langsung hilang sebelum hari berjalan.
-     */
-    fun streak(entries: List<MealEntry>, today: LocalDate): Int {
-        val daysWithEntries = entries.map { it.timestamp.toLocalDate() }.toSet()
-        if (daysWithEntries.isEmpty()) return 0
-
-        var cursor = if (today in daysWithEntries) today else today.minusDays(1)
-        var count = 0
-        while (cursor in daysWithEntries) {
-            count++
-            cursor = cursor.minusDays(1)
-        }
-        return count
     }
 
     /** Rangkuman mingguan berisi rata-rata gizi dan catatan yang perlu diperhatikan. */
@@ -107,18 +89,5 @@ object Stats {
             daysOverTarget = overTarget,
             insights = insights
         )
-    }
-
-
-
-    /** Total gelas air pada satu hari. */
-    fun waterGlasses(date: LocalDate, entries: List<WaterEntry>): Int =
-        entries.filter { it.timestamp.toLocalDate() == date }.sumOf { it.glasses }
-
-    /** Selisih berat badan dari catatan paling awal ke paling akhir. */
-    fun weightChange(entries: List<WeightEntry>): Double? {
-        if (entries.size < 2) return null
-        val sorted = entries.sortedBy { it.date }
-        return sorted.last().weightKg - sorted.first().weightKg
     }
 }

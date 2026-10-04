@@ -1,7 +1,6 @@
 package com.hajun.kaloriku.data
 
 import android.content.Context
-import java.time.LocalDate
 import kotlin.math.roundToInt
 
 /**
@@ -148,8 +147,3 @@ data class DailyGoals(
     }
 }
 
-/** Catatan minum air. Satu entri = satu gelas. */
-data class WaterEntry(val id: Long, val timestamp: Long, val glasses: Int)
-
-/** Catatan berat badan untuk melihat progres. */
-data class WeightEntry(val date: LocalDate, val weightKg: Double)

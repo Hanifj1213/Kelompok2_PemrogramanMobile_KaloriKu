@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hajun.kaloriku.R
 import com.hajun.kaloriku.data.MealEntry
+import com.hajun.kaloriku.data.Stats
 import com.hajun.kaloriku.ui.MainViewModel
 import com.hajun.kaloriku.ui.charts.WeeklyBarChart
 import com.hajun.kaloriku.ui.components.AppCard
@@ -39,19 +40,17 @@ import com.hajun.kaloriku.util.formatRelativeDay
 import com.hajun.kaloriku.util.formatWhole
 import com.hajun.kaloriku.util.toLocalDate
 import java.time.LocalDate
-import com.hajun.kaloriku.ui.components.clipRounded
-import com.hajun.kaloriku.ui.components.tapNoRipple
 import androidx.compose.foundation.layout.statusBarsPadding
 
 /** Riwayat makan lengkap dengan grafik tujuh hari terakhir. */
 @Composable
 fun HistoryScreen(
     viewModel: MainViewModel,
-    onOpenWeekly: () -> Unit,
     onAddFood: () -> Unit
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val target by viewModel.dailyTarget.collectAsStateWithLifecycle()
+    val goals by viewModel.dailyGoals.collectAsStateWithLifecycle()
 
     val byDate = remember(entries) {
         entries.groupBy { it.timestamp.toLocalDate() }
@@ -59,6 +58,9 @@ fun HistoryScreen(
     }
     val today = LocalDate.now()
     val lastSevenDays = remember(today) { (6 downTo 0).map { today.minusDays(it.toLong()) } }
+    val weekly = remember(entries, goals, lastSevenDays) {
+        Stats.weeklySummaries(entries, lastSevenDays, goals.calories, goals.proteinG)
+    }
     val days = remember(byDate) { byDate.keys.sortedDescending() }
 
     LazyColumn(
@@ -88,11 +90,13 @@ fun HistoryScreen(
         }
 
         item {
-            HistoryChartCard(
+            WeeklySummaryCard(
+                averageCalories = weekly.averageCalories,
+                daysOverTarget = weekly.daysOverTarget,
+                recordedDays = weekly.recordedDays,
                 days = lastSevenDays,
-                totals = lastSevenDays.map { date -> byDate[date].orEmpty().sumOf { it.totalCalories } },
-                target = target,
-                onOpenWeekly = onOpenWeekly
+                totals = weekly.days.map { it.calories },
+                target = target
             )
         }
 
@@ -126,21 +130,20 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun HistoryChartCard(
+private fun WeeklySummaryCard(
+    averageCalories: Double,
+    daysOverTarget: Int,
+    recordedDays: Int,
     days: List<LocalDate>,
     totals: List<Double>,
-    target: Int,
-    onOpenWeekly: () -> Unit
+    target: Int
 ) {
-    val recordedDays = totals.filter { it > 0 }
-    val average = if (recordedDays.isEmpty()) 0.0 else recordedDays.average()
-
     AppCard(modifier = Modifier.fillMaxWidth(), spacing = 14.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("7 hari terakhir", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
         }
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(text = average.formatWhole(), style = MaterialTheme.typography.headlineMedium)
+            Text(text = averageCalories.formatWhole(), style = MaterialTheme.typography.headlineMedium)
             Text(
                 text = " kkal rata-rata/hari",
                 style = MaterialTheme.typography.bodySmall,
@@ -148,6 +151,11 @@ private fun HistoryChartCard(
                 modifier = Modifier.padding(bottom = 5.dp)
             )
         }
+        Text(
+            text = "$daysOverTarget dari $recordedDays hari melebihi target",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         WeeklyBarChart(
             labels = days.map { it.formatDayMonth() },
             values = totals,
@@ -183,16 +191,6 @@ private fun HistoryChartCard(
                 modifier = Modifier.weight(1f)
             )
         }
-        Text(
-            text = "Lihat laporan lengkap",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clipRounded(14.dp)
-                .tapNoRipple(onClick = onOpenWeekly)
-                .padding(vertical = 10.dp)
-        )
     }
 }
 

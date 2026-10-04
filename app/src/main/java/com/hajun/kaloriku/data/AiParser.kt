@@ -64,9 +64,6 @@ object AiParser {
         )
     }
 
-    /** Mengambil daftar makanan dari jawaban AI untuk input suara. */
-    fun extractFoods(text: String): List<FoodItem> = parseAnalysis(text).items
-
     /** Mengambil pesan error dari body respons gagal, misalnya `{"error":{"message":"..."}}`. */
     fun extractErrorMessage(responseBody: String): String? = try {
         JSONObject(responseBody).optJSONObject("error")?.optString("message")?.takeIf { it.isNotBlank() }

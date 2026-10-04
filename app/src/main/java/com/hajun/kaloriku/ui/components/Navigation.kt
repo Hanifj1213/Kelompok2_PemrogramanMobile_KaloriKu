@@ -52,7 +52,6 @@ data class BottomTab(
 val bottomTabs = listOf(
     BottomTab("home", "Beranda", R.drawable.ic_home, R.drawable.ic_home_fill),
     BottomTab("history", "Riwayat", R.drawable.ic_calendar_month, R.drawable.ic_calendar_month_fill),
-    BottomTab("weekly", "Laporan", R.drawable.ic_bar_chart, R.drawable.ic_bar_chart_fill),
     BottomTab("profile", "Profil", R.drawable.ic_person, R.drawable.ic_person_fill)
 )
 
@@ -162,8 +161,7 @@ fun AddMealSheet(
     onCamera: () -> Unit,
     onGallery: () -> Unit,
     onSearch: () -> Unit,
-    onBarcode: () -> Unit,
-    onVoice: () -> Unit
+    onBarcode: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -214,13 +212,6 @@ fun AddMealSheet(
                 subtitle = "Data gizi dari Open Food Facts",
                 tint = Orange500,
                 onClick = onBarcode
-            )
-            OptionRow(
-                icon = R.drawable.ic_mic,
-                title = "Catat dengan suara",
-                subtitle = "Sebutkan makananmu, contoh: nasi goreng dan telur",
-                tint = Color(0xFFEC4899),
-                onClick = onVoice
             )
         }
     }
