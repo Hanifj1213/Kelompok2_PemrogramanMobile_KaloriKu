@@ -6,28 +6,22 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-
 import androidx.compose.foundation.background
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -36,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,9 +43,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hajun.kaloriku.R
 import com.hajun.kaloriku.data.ActivityLevel
@@ -63,17 +61,15 @@ import com.hajun.kaloriku.ui.components.AppCard
 import com.hajun.kaloriku.ui.components.IconBadge
 import com.hajun.kaloriku.ui.components.PrimaryButton
 import com.hajun.kaloriku.ui.components.StatTile
-import com.hajun.kaloriku.ui.theme.Green600
-import com.hajun.kaloriku.ui.theme.Orange500
+import com.hajun.kaloriku.ui.theme.Spacing
 import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatWhole
-import androidx.compose.foundation.layout.statusBarsPadding
 
 private val AGE_RANGE = 10..100
 private val WEIGHT_RANGE = 20.0..300.0
 private val HEIGHT_RANGE = 100.0..250.0
 
-/** Profil pengguna, status gizi (IMT), dan pengaturan pengingat. */
+/** Profil pengguna: kartu ringkas target + IMT di atas, lalu daftar pengaturan berkelompok. */
 @Composable
 fun ProfileScreen(
     viewModel: MainViewModel,
@@ -110,64 +106,42 @@ fun ProfileScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .imePadding(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(
+            start = Spacing.screen,
+            end = Spacing.screen,
+            top = Spacing.sm,
+            bottom = Spacing.xxl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Profil", style = MaterialTheme.typography.headlineSmall)
-                    Text(
-                        text = "Target kalori dan pengaturanmu",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconBadge(
-                    icon = R.drawable.ic_tune,
-                    tint = MaterialTheme.colorScheme.primary,
-                    container = MaterialTheme.colorScheme.primaryContainer,
-                    size = 42.dp,
-                    iconSize = 20.dp
+            Column {
+                Text("Profil", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    text = "Target kalori dan pengaturanmu",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        item { ProfileHeader(profile = profile) }
+        item { TargetSummaryCard(profile = profile, goalsCalories = goals.calories, onOpenGoals = onOpenGoals) }
 
         if (profile != null) {
-            item { TargetCard(profile = profile) }
+            item { BmiCard(profile = profile) }
         }
 
         item {
-            AppCard(modifier = Modifier.fillMaxWidth(), spacing = 14.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconBadge(icon = R.drawable.ic_person, tint = Green600)
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp)
-                    ) {
-                        Text("Data tubuh", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = "Dipakai untuk menghitung target kalorimu",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsGroup(title = "Data tubuh") {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Gender.entries.forEach { option ->
                         FilterChip(
                             selected = option == gender,
                             onClick = { gender = option },
-                            shape = RoundedCornerShape(50),
                             label = { Text(option.label) }
                         )
                     }
                 }
-
                 NumberField(
                     label = "Usia (tahun)",
                     value = age,
@@ -194,8 +168,8 @@ fun ProfileScreen(
         }
 
         item {
-            AppCard(modifier = Modifier.fillMaxWidth(), spacing = 10.dp) {
-                Text("Tingkat aktivitas", style = MaterialTheme.typography.titleMedium)
+            SettingsGroup(title = "Aktivitas & tujuan") {
+                Text("Tingkat aktivitas", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(modifier = Modifier.selectableGroup()) {
                     ActivityLevel.entries.forEach { option ->
                         ActivityRow(
@@ -205,42 +179,59 @@ fun ProfileScreen(
                         )
                     }
                 }
-            }
-        }
-
-        item {
-            AppCard(modifier = Modifier.fillMaxWidth(), spacing = 10.dp) {
-                Text("Tujuan", style = MaterialTheme.typography.titleMedium)
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
-                    items(Goal.entries) { option ->
-                        FilterChip(
-                            selected = option == goal,
-                            onClick = { goal = option },
-                            shape = RoundedCornerShape(50),
-                            label = { Text(option.label) }
-                        )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        items(Goal.entries) { option ->
+                            FilterChip(
+                                selected = option == goal,
+                                onClick = { goal = option },
+                                label = { Text(option.label) }
+                            )
+                        }
                     }
                 }
             }
         }
 
-        if (profile != null) {
-            item { BmiCard(profile = profile) }
-        }
-
         item {
-            AppCard(modifier = Modifier.fillMaxWidth(), spacing = 12.dp) {
+            AppCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onOpenGoals,
+                contentPadding = PaddingValues(Spacing.lg)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconBadge(icon = R.drawable.ic_notifications, tint = Orange500)
+                    IconBadge(icon = R.drawable.ic_flag_fill, tint = MaterialTheme.colorScheme.onPrimaryContainer, container = MaterialTheme.colorScheme.primaryContainer)
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 12.dp)
+                            .padding(horizontal = Spacing.md)
                     ) {
-                        Text("Pengingat makan", style = MaterialTheme.typography.titleMedium)
+                        Text("Target gizi", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = "${goals.calories.formatWhole()} kkal · P ${goals.proteinG} K ${goals.carbsG} L ${goals.fatG} g",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_chevron_right),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+        }
+
+        item {
+            SettingsGroup(title = "Pengingat makan") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Pengingat makan", style = MaterialTheme.typography.titleSmall)
                         Text(
                             text = "Notifikasi pagi (08.00), siang (13.00), dan malam (19.00).",
                             style = MaterialTheme.typography.bodySmall,
@@ -267,32 +258,16 @@ fun ProfileScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    "Pengaturan disimpan langsung. Waktu notifikasi bisa bergeser mengikuti pengaturan baterai Android.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
 
         item {
-            ShortcutTile(
-                icon = R.drawable.ic_flag_fill,
-                label = "Target gizi",
-                detail = "${goals.calories.formatWhole()} kkal",
-                tint = Green600,
-                onClick = onOpenGoals,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
             PrimaryButton(
-                text = "Simpan profil",
+                text = "Simpan",
                 onClick = {
                     if (profile != null) {
                         viewModel.saveProfile(profile)
-                        Toast.makeText(context, "Profil berhasil disimpan. Target kalori diperbarui.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Profil tersimpan. Target kalori diperbarui.", Toast.LENGTH_SHORT).show()
                     }
                 },
                 enabled = profile != null,
@@ -311,84 +286,31 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeader(profile: Profile?) {
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = 14.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_person_fill),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 14.dp)
-            ) {
-                Text(
-                    text = if (profile == null) "Profil belum lengkap" else "Profil kamu",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = if (profile == null) {
-                        "Isi data tubuh untuk menghitung target kalori."
-                    } else {
-                        "${profile.gender.label} · ${profile.ageYears} tahun · ${profile.activity.label.lowercase()}"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        if (profile != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(
-                    label = "Berat",
-                    value = profile.weightKg.formatDecimal(),
-                    unit = "kg",
-                    modifier = Modifier.weight(1f)
-                )
-                StatTile(
-                    label = "Tinggi",
-                    value = profile.heightCm.formatDecimal(),
-                    unit = "cm",
-                    modifier = Modifier.weight(1f)
-                )
-                StatTile(
-                    label = "Tujuan",
-                    value = profile.goal.label.split(" ").first(),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
+private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.md) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        content()
     }
 }
 
+/** Kartu ringkas: target kalori harian dan IMT. */
 @Composable
-private fun TargetCard(profile: Profile) {
+private fun TargetSummaryCard(profile: Profile?, goalsCalories: Int, onOpenGoals: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth(),
-        border = false,
         color = MaterialTheme.colorScheme.primaryContainer,
-        spacing = 10.dp
+        spacing = Spacing.sm
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 icon = R.drawable.ic_flag_fill,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                container = Color.White.copy(alpha = 0.5f)
+                container = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp)
+                    .padding(start = Spacing.md)
             ) {
                 Text(
                     text = "Target harian",
@@ -397,7 +319,7 @@ private fun TargetCard(profile: Profile) {
                 )
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = CalorieCalculator.dailyTarget(profile).formatWhole(),
+                        text = (profile?.let { CalorieCalculator.dailyTarget(it) } ?: goalsCalories).formatWhole(),
                         style = MaterialTheme.typography.displaySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -405,26 +327,27 @@ private fun TargetCard(profile: Profile) {
                         text = " kkal",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(bottom = 5.dp)
+                        modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
                     )
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile(
-                label = "BMR (istirahat)",
-                value = CalorieCalculator.bmr(profile).formatWhole(),
-                unit = "kkal",
-                color = Color.White.copy(alpha = 0.55f),
-                modifier = Modifier.weight(1f)
+        if (profile != null) {
+            val bmi = bmiOf(profile)
+            Text(
+                text = "IMT ${bmi.formatDecimal()} · ${bmiLabel(bmi)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            StatTile(
-                label = "TDEE (aktivitas)",
-                value = CalorieCalculator.tdee(profile).formatWhole(),
-                unit = "kkal",
-                color = Color.White.copy(alpha = 0.55f),
-                modifier = Modifier.weight(1f)
+        } else {
+            Text(
+                text = "Isi data tubuh untuk menghitung targetmu.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
+        }
+        TextButton(onClick = onOpenGoals) {
+            Text("Atur target gizi", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }
@@ -432,56 +355,34 @@ private fun TargetCard(profile: Profile) {
 /** Kartu status gizi berdasarkan IMT (indeks massa tubuh). */
 @Composable
 private fun BmiCard(profile: Profile) {
-    val weight = profile.weightKg
-    val heightM = profile.heightCm / 100.0
-    if (heightM <= 0) return
-    val bmi = weight / (heightM * heightM)
-
-    val (label, advice, color) = when {
-        bmi < 18.5 -> Triple(
-            "Kurang berat",
-            "Tambahkan asupan bergizi dan konsultasikan dengan ahli gizi.",
-            Orange500
-        )
-        bmi < 23.0 -> Triple(
-            "Normal",
-            "Berat badanmu dalam rentang sehat. Pertahankan pola makan.",
-            Green600
-        )
-        bmi < 25.0 -> Triple("Sedikit berlebih", "Jaga porsi dan tingkatkan aktivitas fisik.", Orange500)
-        bmi < 30.0 -> Triple(
-            "Berlebih",
-            "Kurangi camilan manis dan perbanyak sayur serta jalan kaki.",
-            Orange500
-        )
-        else -> Triple("Obesitas", "Sebaiknya konsultasikan dengan dokter atau ahli gizi.", Color(0xFFE5484D))
+    val bmi = bmiOf(profile)
+    val advice = when {
+        bmi < 18.5 -> "Tambahkan asupan bergizi dan konsultasikan dengan ahli gizi."
+        bmi < 23.0 -> "Berat badanmu dalam rentang sehat. Pertahankan pola makan."
+        bmi < 25.0 -> "Jaga porsi dan tingkatkan aktivitas fisik."
+        bmi < 30.0 -> "Kurangi camilan manis dan perbanyak sayur serta jalan kaki."
+        else -> "Sebaiknya konsultasikan dengan dokter atau ahli gizi."
     }
 
-    AppCard(
-        modifier = Modifier.fillMaxWidth(),
-        color = color.copy(alpha = 0.10f),
-        border = false,
-        spacing = 8.dp
-    ) {
+    AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.sm) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 icon = R.drawable.ic_health_and_safety,
-                tint = color,
-                container = Color.White.copy(alpha = 0.6f),
+                tint = MaterialTheme.colorScheme.primary,
                 size = 44.dp,
                 iconSize = 22.dp
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp)
+                    .padding(start = Spacing.md)
             ) {
                 Text(
                     text = "Status gizi (IMT)",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(text = "${bmi.formatDecimal()} · $label", style = MaterialTheme.typography.titleMedium)
+                Text(text = "${bmi.formatDecimal()} · ${bmiLabel(bmi)}", style = MaterialTheme.typography.titleMedium)
             }
         }
         Text(text = advice, style = MaterialTheme.typography.bodyMedium)
@@ -494,57 +395,39 @@ private fun BmiCard(profile: Profile) {
     }
 }
 
+private fun bmiOf(profile: Profile): Double {
+    val heightM = profile.heightCm / 100.0
+    return if (heightM <= 0) 0.0 else profile.weightKg / (heightM * heightM)
+}
+
+private fun bmiLabel(bmi: Double): String = when {
+    bmi < 18.5 -> "Kurang berat"
+    bmi < 23.0 -> "Normal"
+    bmi < 25.0 -> "Sedikit berlebih"
+    bmi < 30.0 -> "Berlebih"
+    else -> "Obesitas"
+}
+
 @Composable
 private fun ActivityRow(option: ActivityLevel, selected: Boolean, onSelect: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(selected = selected, onClick = null)
-        Column(modifier = Modifier.padding(start = 8.dp)) {
+        Column(modifier = Modifier.padding(start = Spacing.sm)) {
             Text(
                 text = option.label,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = option.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun ShortcutTile(
-    icon: Int,
-    label: String,
-    detail: String,
-    tint: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    AppCard(
-        modifier = modifier,
-        onClick = onClick,
-        contentPadding = PaddingValues(14.dp),
-        spacing = 8.dp
-    ) {
-        IconBadge(icon = icon, tint = tint, size = 40.dp, iconSize = 20.dp)
-        Column {
-            Text(label, style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = detail,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -568,7 +451,7 @@ private fun NumberField(
         isError = isError,
         supportingText = if (isError) ({ Text(errorText) }) else null,
         singleLine = true,
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         keyboardOptions = KeyboardOptions(
             keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
             imeAction = ImeAction.Next

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,8 +48,8 @@ import com.hajun.kaloriku.ui.components.PrimaryButton
 import com.hajun.kaloriku.ui.components.SecondaryButton
 import com.hajun.kaloriku.ui.theme.CarbsColor
 import com.hajun.kaloriku.ui.theme.FatColor
-import com.hajun.kaloriku.ui.theme.Green600
 import com.hajun.kaloriku.ui.theme.ProteinColor
+import com.hajun.kaloriku.ui.theme.Spacing
 import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatWhole
 
@@ -94,17 +93,17 @@ fun GoalsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 .fillMaxSize()
                 .navigationBarsPadding()
                 .imePadding(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             item {
-                AppCard(modifier = Modifier.fillMaxWidth(), spacing = 12.dp) {
+                AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.md) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconBadge(icon = R.drawable.ic_flag_fill, tint = Green600)
+                        IconBadge(icon = R.drawable.ic_flag_fill, tint = MaterialTheme.colorScheme.primary)
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(start = 12.dp)
+                                .padding(start = Spacing.md)
                         ) {
                             Text("Target kalori aktif", style = MaterialTheme.typography.titleMedium)
                             Text(
@@ -128,18 +127,18 @@ fun GoalsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             }
 
             item {
-                AppCard(modifier = Modifier.fillMaxWidth(), spacing = 12.dp) {
+                AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.md) {
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = totalKcal.formatWhole(),
                             style = MaterialTheme.typography.displaySmall,
-                            color = Green600
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = " kkal dari makro",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.md)
                         )
                     }
                     StackedMacroBar(item = preview)
@@ -191,7 +190,7 @@ fun GoalsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     range = 0..1000,
                     hint = "Saran ${suggestion.fatG} g",
                     color = FatColor,
-                    icon = R.drawable.ic_water_drop,
+                    icon = R.drawable.ic_restaurant,
                     onValueChange = { fat = it }
                 )
             }
@@ -250,13 +249,13 @@ private fun GoalSlider(
     onValueChange: (String) -> Unit
 ) {
     val parsed = parseIntegerInput(value, range)
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = 6.dp) {
+    AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.sm) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(icon = icon, tint = color, size = 40.dp, iconSize = 20.dp)
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp)
+                    .padding(start = Spacing.md)
             ) {
                 Text(label, style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -272,7 +271,7 @@ private fun GoalSlider(
                 modifier = Modifier.width(104.dp).semantics { contentDescription = "Target $label (gram)" },
                 suffix = { Text("g") },
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done

@@ -1,5 +1,15 @@
 package com.hajun.kaloriku.ui.screen
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -12,35 +22,34 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.key
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.text.input.ImeAction
-import com.hajun.kaloriku.util.parseDecimalInput
-import com.hajun.kaloriku.util.toPlainInput
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,19 +60,21 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hajun.kaloriku.R
 import com.hajun.kaloriku.data.AnalysisResult
+import com.hajun.kaloriku.data.DailyGoals
+import com.hajun.kaloriku.data.FoodItem
 import com.hajun.kaloriku.data.MealType
 import com.hajun.kaloriku.data.sumNutrition
 import com.hajun.kaloriku.ui.AnalysisState
 import com.hajun.kaloriku.ui.EditableItem
 import com.hajun.kaloriku.ui.MainViewModel
-import com.hajun.kaloriku.ui.charts.CalorieRing
-import com.hajun.kaloriku.ui.charts.MacroRingsRow
 import com.hajun.kaloriku.ui.charts.StackedMacroBar
+import com.hajun.kaloriku.ui.components.AnimatedWholeNumber
 import com.hajun.kaloriku.ui.components.AppCard
 import com.hajun.kaloriku.ui.components.EmptyState
 import com.hajun.kaloriku.ui.components.IconBadge
@@ -71,19 +82,20 @@ import com.hajun.kaloriku.ui.components.KaloriTopBar
 import com.hajun.kaloriku.ui.components.MacroPills
 import com.hajun.kaloriku.ui.components.PrimaryButton
 import com.hajun.kaloriku.ui.components.SecondaryButton
-import com.hajun.kaloriku.ui.components.accent
 import com.hajun.kaloriku.ui.components.iconRes
-import com.hajun.kaloriku.ui.theme.Green600
-import com.hajun.kaloriku.ui.theme.Green700
-import com.hajun.kaloriku.ui.theme.Orange500
+import com.hajun.kaloriku.ui.theme.CarbsColor
+import com.hajun.kaloriku.ui.theme.FatColor
+import com.hajun.kaloriku.ui.theme.ProteinColor
+import com.hajun.kaloriku.ui.theme.Spacing
 import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatWhole
-import com.hajun.kaloriku.ui.components.tapNoRipple
+import com.hajun.kaloriku.util.parseDecimalInput
+import com.hajun.kaloriku.util.toPlainInput
 
 private val portionOptions = listOf(0.5 to "½", 1.0 to "1", 1.5 to "1½", 2.0 to "2")
 
 /**
- * Hasil analisis foto, barcode, atau suara. Semua angka bisa disunting
+ * Hasil analisis foto, barcode, atau input manual. Semua angka bisa disunting
  * sebelum disimpan ke catatan harian.
  */
 @Composable
@@ -115,108 +127,128 @@ fun ResultScreen(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = Spacing.screen)
+                .padding(bottom = Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            if (photo != null) {
-                Image(
-                    bitmap = photo.asImageBitmap(),
-                    contentDescription = "Foto makanan yang dianalisis",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                        .clip(MaterialTheme.shapes.large)
-                )
-            }
+            AnimatedContent(
+                targetState = state,
+                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(140)) },
+                label = "hasil"
+            ) { current ->
+                when (current) {
+                    AnalysisState.Idle -> EmptyState(
+                        icon = R.drawable.ic_no_food,
+                        message = "Belum ada bahan. Pilih foto, cari makanan, atau scan barcode.",
+                        action = { PrimaryButton(text = "Kembali", onClick = onBack) }
+                    )
 
-            when (state) {
-                AnalysisState.Idle -> EmptyState(
-                    icon = R.drawable.ic_no_food,
-                    title = "Belum ada bahan",
-                    message = "Pilih foto, cari makanan, scan barcode, atau catat lewat suara."
-                )
+                    AnalysisState.Loading -> LoadingContent()
 
-                AnalysisState.Loading -> LoadingContent()
+                    is AnalysisState.Error -> ErrorContent(
+                        message = current.message,
+                        onRetry = if (viewModel.canRetry) viewModel::retry else null,
+                        onBack = onBack
+                    )
 
-                is AnalysisState.Error -> ErrorContent(
-                    message = state.message,
-                    onRetry = if (viewModel.canRetry) viewModel::retry else null,
-                    onBack = onBack
-                )
-
-                is AnalysisState.Success -> SuccessContent(
-                    result = state.result,
-                    items = items,
-                    mealType = viewModel.mealType,
-                    onMealTypeChange = { viewModel.mealType = it },
-                    onPortionChange = viewModel::setPortion,
-                    onGramsChange = viewModel::setGrams,
-                    onRemove = viewModel::removeItem,
-                    onAddAnother = onAddAnother,
-                    onBack = onBack,
-                    onValidityChange = { id, valid ->
-                        invalidGrams = if (valid) invalidGrams - id else (invalidGrams + id).distinct()
-                    }
-                )
+                    is AnalysisState.Success -> SuccessContent(
+                        result = current.result,
+                        items = items,
+                        photo = photo,
+                        mealType = viewModel.mealType,
+                        onMealTypeChange = { viewModel.mealType = it },
+                        onPortionChange = viewModel::setPortion,
+                        onGramsChange = viewModel::setGrams,
+                        onRemove = viewModel::removeItem,
+                        onAddAnother = onAddAnother,
+                        onBack = onBack,
+                        onValidityChange = { id, valid ->
+                            invalidGrams = if (valid) invalidGrams - id else (invalidGrams + id).distinct()
+                        }
+                    )
+                }
             }
         }
 
         if (state is AnalysisState.Success && items.isNotEmpty()) {
-            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
-                Column(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Total",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "${totals.calories.formatWhole()} kkal",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    }
-                    PrimaryButton(
-                        text = "Simpan ke catatan",
-                        onClick = { if (canSave && viewModel.saveMeal()) onSaved() },
-                        enabled = canSave,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+            SaveBar(calories = totals.calories, enabled = canSave, onSave = { if (canSave && viewModel.saveMeal()) onSaved() })
+        }
+    }
+}
+
+/** Bar simpan yang menempel di bawah layar. */
+@Composable
+private fun SaveBar(calories: Double, enabled: Boolean, onSave: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+        Column(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Total",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                AnimatedWholeNumber(
+                    value = calories,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
+            PrimaryButton(
+                text = "Simpan",
+                onClick = onSave,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
 @Composable
 private fun LoadingContent() {
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = 16.dp) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(140.dp)
-                .clip(MaterialTheme.shapes.medium)
-                .background(
-                    Brush.linearGradient(listOf(Green600.copy(alpha = 0.18f), Green700.copy(alpha = 0.08f)))
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                CircularProgressIndicator(color = Green600)
-                Text("AI sedang membaca fotomu…", style = MaterialTheme.typography.titleSmall)
-            }
-        }
+    AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.lg) {
+        ShimmerPlaceholder()
+        Text("AI sedang membaca fotomu…", style = MaterialTheme.typography.titleSmall)
         Text(
             text = "Biasanya perlu beberapa detik. Pastikan foto terlihat jelas dan tidak gelap.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/** Kotak shimmer sederhana, tanpa persentase palsu. */
+@Composable
+private fun ShimmerPlaceholder() {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val alpha by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmerAlpha"
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = alpha))
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.6f)
+                .height(14.dp)
+                .clip(MaterialTheme.shapes.small)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = alpha))
         )
     }
 }
@@ -226,19 +258,18 @@ private fun ErrorContent(message: String, onRetry: (() -> Unit)?, onBack: () -> 
     AppCard(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.errorContainer,
-        border = false,
-        spacing = 14.dp
+        spacing = Spacing.md
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 icon = R.drawable.ic_error,
-                tint = MaterialTheme.colorScheme.onErrorContainer,
-                container = Color.White.copy(alpha = 0.45f)
+                tint = MaterialTheme.colorScheme.error,
+                container = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp)
+                    .padding(start = Spacing.md)
             ) {
                 Text("Analisis gagal", style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -259,6 +290,7 @@ private fun ErrorContent(message: String, onRetry: (() -> Unit)?, onBack: () -> 
 private fun SuccessContent(
     result: AnalysisResult,
     items: List<EditableItem>,
+    photo: android.graphics.Bitmap?,
     mealType: MealType,
     onMealTypeChange: (MealType) -> Unit,
     onPortionChange: (Int, Double) -> Unit,
@@ -269,10 +301,9 @@ private fun SuccessContent(
     onValidityChange: (Long, Boolean) -> Unit
 ) {
     if (!result.isFood) {
-        AppCard(modifier = Modifier.fillMaxWidth(), spacing = 12.dp) {
+        AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.md) {
             EmptyState(
                 icon = R.drawable.ic_no_food,
-                title = "Makanan tidak terdeteksi",
                 message = result.note.ifBlank { "Pastikan foto berisi makanan dan terlihat jelas." }
             )
         }
@@ -281,7 +312,7 @@ private fun SuccessContent(
     }
 
     val totals = items.map { it.current }.sumNutrition()
-    ResultSummaryCard(totals = totals)
+    ResultSummaryCard(totals = totals, photo = photo)
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -291,7 +322,7 @@ private fun SuccessContent(
         )
         TextButton(onClick = onAddAnother) {
             Icon(painterResource(R.drawable.ic_add), contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(Spacing.xs))
             Text("Tambah")
         }
     }
@@ -318,19 +349,15 @@ private fun SuccessContent(
     }
 
     if (result.note.isNotBlank()) {
-        AppCard(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            spacing = 8.dp
-        ) {
+        AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.sm) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     painter = painterResource(R.drawable.ic_lightbulb),
                     contentDescription = null,
-                    tint = Orange500,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.sm))
                 Text("Sumber dan catatan", style = MaterialTheme.typography.titleSmall)
             }
             Text(text = result.note, style = MaterialTheme.typography.bodyMedium)
@@ -342,19 +369,17 @@ private fun SuccessContent(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         MealType.entries.forEach { type ->
             FilterChip(
                 selected = type == mealType,
                 onClick = { onMealTypeChange(type) },
-                shape = RoundedCornerShape(50),
                 label = { Text(type.label) },
                 leadingIcon = {
                     Icon(
                         painter = painterResource(type.iconRes),
                         contentDescription = null,
-                        tint = if (type == mealType) MaterialTheme.colorScheme.primary else type.accent,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -373,63 +398,98 @@ private fun SuccessContent(
     )
 }
 
-/** Kartu ringkasan: cincin kalori besar dan cincin capaian gizi. */
+/** Foto beradius 24 dp dengan scrim bawah berisi total kalori. */
 @Composable
-private fun ResultSummaryCard(totals: com.hajun.kaloriku.data.FoodItem) {
-    AppCard(
-        modifier = Modifier.fillMaxWidth(),
-        border = false,
-        color = MaterialTheme.colorScheme.surface,
-        contentPadding = PaddingValues(18.dp),
-        spacing = 16.dp
+private fun PhotoWithScrim(photo: android.graphics.Bitmap?, calories: Double) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .clip(MaterialTheme.shapes.large)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            CalorieRing(
-                progress = 1f,
-                size = 150.dp,
-                strokeWidth = 13.dp,
-                color = Green600,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = totals.calories.formatWhole(),
-                        style = MaterialTheme.typography.displaySmall
-                    )
-                    Text(
-                        text = "kkal",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Text(
-                text = "${totals.grams.formatWhole()} g total berat sajian",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        if (photo != null) {
+            Image(
+                bitmap = photo.asImageBitmap(),
+                contentDescription = "Foto makanan yang dianalisis",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
+        } else {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh))
         }
+        // Satu-satunya gradasi yang diizinkan: scrim gelap supaya teks terbaca.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.65f))
+                    )
+                )
+                .padding(Spacing.lg),
+            contentAlignment = Alignment.BottomStart
+        ) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                AnimatedWholeNumber(
+                    value = calories,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = Color.White
+                )
+                Text(
+                    text = " kkal",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
+                )
+            }
+        }
+    }
+}
+
+/** Kartu ringkasan: foto (kalau ada) dengan scrim kalori, lalu bar makro. */
+@Composable
+private fun ResultSummaryCard(totals: FoodItem, photo: android.graphics.Bitmap?) {
+    AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.md) {
+        if (photo != null) {
+            PhotoWithScrim(photo = photo, calories = totals.calories)
+        } else {
+            Row(verticalAlignment = Alignment.Bottom) {
+                AnimatedWholeNumber(
+                    value = totals.calories,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = " kkal",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
+                )
+            }
+        }
+        Text(
+            text = "${totals.grams.formatWhole()} g total berat sajian",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         StackedMacroBar(item = totals)
         MacrosFromItem(totals)
     }
 }
 
 @Composable
-private fun MacrosFromItem(item: com.hajun.kaloriku.data.FoodItem) {
+private fun MacrosFromItem(item: FoodItem) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        MacroColumn("Protein", item.proteinG, Color(0xFF3B82F6))
-        MacroColumn("Karbohidrat", item.carbsG, Color(0xFFF59E0B))
-        MacroColumn("Lemak", item.fatG, Color(0xFFA855F7))
+        MacroColumn("Protein", item.proteinG, ProteinColor)
+        MacroColumn("Karbohidrat", item.carbsG, CarbsColor)
+        MacroColumn("Lemak", item.fatG, FatColor)
     }
 }
 
 @Composable
 private fun MacroColumn(label: String, grams: Double, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(text = "${grams.formatDecimal()} g", style = MaterialTheme.typography.titleMedium, color = color)
         Text(
             text = label,
@@ -440,6 +500,7 @@ private fun MacroColumn(label: String, grams: Double, color: Color) {
 }
 
 /** Kartu satu makanan yang beratnya bisa disunting langsung. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FoodItemCard(
     item: EditableItem,
@@ -460,7 +521,7 @@ private fun FoodItemCard(
     }
     LaunchedEffect(gramsText) { onValidityChange(grams != null) }
 
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = 12.dp) {
+    AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.md) {
         Row(verticalAlignment = Alignment.Top) {
             IconBadge(
                 icon = R.drawable.ic_restaurant,
@@ -471,7 +532,7 @@ private fun FoodItemCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp, end = 8.dp)
+                    .padding(start = Spacing.md, end = Spacing.sm)
             ) {
                 Text(text = food.name, style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -512,18 +573,16 @@ private fun FoodItemCard(
             isError = grams == null,
             supportingText = if (grams == null) ({ Text("Isi berat 1–3000 g sebelum menyimpan.") }) else null,
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
+            shape = MaterialTheme.shapes.medium,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
             modifier = Modifier.fillMaxWidth()
         )
+
         Text("Porsi cepat", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            portionOptions.forEach { (factor, label) ->
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            portionOptions.forEachIndexed { index, (factor, label) ->
                 val portionGrams = item.base.grams * factor
-                FilterChip(
+                SegmentedButton(
                     selected = grams != null && item.portion == factor,
                     onClick = {
                         gramsText = portionGrams.toPlainInput()
@@ -532,9 +591,8 @@ private fun FoodItemCard(
                         onPortionChange(factor)
                     },
                     enabled = portionGrams.isFinite() && portionGrams in 1.0..3000.0,
-                    label = { Text("$label porsi") },
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.heightIn(min = 48.dp)
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = portionOptions.size),
+                    label = { Text(label) }
                 )
             }
         }
@@ -542,15 +600,12 @@ private fun FoodItemCard(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(
                 onClick = onRemove,
-                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Icon(painterResource(R.drawable.ic_delete), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Hapus item")
+                Spacer(modifier = Modifier.width(Spacing.xs))
+                Text("Hapus")
             }
         }
     }
 }
-

@@ -12,15 +12,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -35,36 +37,32 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.navigationBarsPadding
-import com.hajun.kaloriku.util.parseDecimalInput
-import com.hajun.kaloriku.util.toPlainInput
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hajun.kaloriku.R
 import com.hajun.kaloriku.data.Food
 import com.hajun.kaloriku.ui.MainViewModel
 import com.hajun.kaloriku.ui.charts.StackedMacroBar
 import com.hajun.kaloriku.ui.components.AppCard
 import com.hajun.kaloriku.ui.components.EmptyState
-import com.hajun.kaloriku.ui.components.IconBadge
 import com.hajun.kaloriku.ui.components.KaloriTopBar
 import com.hajun.kaloriku.ui.components.MacroPills
 import com.hajun.kaloriku.ui.components.PrimaryButton
 import com.hajun.kaloriku.ui.components.StepButton
+import com.hajun.kaloriku.ui.theme.Spacing
 import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatWhole
+import com.hajun.kaloriku.util.parseDecimalInput
+import com.hajun.kaloriku.util.toPlainInput
 
 private const val MAX_RESULTS = 80
 
@@ -96,7 +94,7 @@ fun FoodSearchScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         KaloriTopBar(title = "Cari makanan", subtitle = "Data TKPI Kemenkes per 100 g", onBack = onBack)
 
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = Spacing.screen)) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -116,16 +114,15 @@ fun FoodSearchScreen(
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(modifier = Modifier.height(Spacing.md))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 item {
                     FilterChip(
                         selected = selectedCategory == null,
                         onClick = { selectedCategory = null },
-                        shape = RoundedCornerShape(50),
                         label = { Text("Semua") }
                     )
                 }
@@ -135,7 +132,6 @@ fun FoodSearchScreen(
                         onClick = {
                             selectedCategory = if (selectedCategory == category) null else category
                         },
-                        shape = RoundedCornerShape(50),
                         label = { Text(category) }
                     )
                 }
@@ -144,26 +140,28 @@ fun FoodSearchScreen(
                 text = "${results.size} makanan ditemukan",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 8.dp)
+                modifier = Modifier.padding(vertical = Spacing.sm)
             )
         }
 
         LazyColumn(
-            modifier = Modifier.weight(1f).navigationBarsPadding().imePadding(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .weight(1f)
+                .navigationBarsPadding()
+                .imePadding(),
+            contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             if (results.isEmpty()) {
                 item {
                     EmptyState(
                         icon = R.drawable.ic_no_food,
-                        title = "Tidak ditemukan",
-                        message = "Coba kata kunci lain, atau pakai foto dan suara untuk mencatat."
+                        message = "Tidak ditemukan. Coba kata kunci lain."
                     )
                 }
             }
             items(results, key = { it.id }) { food ->
-                FoodRow(food = food, onClick = { pendingFood = food })
+                FoodRow(food = food, onClick = { pendingFood = food }, modifier = Modifier.animateItem())
             }
         }
     }
@@ -189,36 +187,36 @@ fun FoodSearchScreen(
 }
 
 @Composable
-private fun FoodRow(food: Food, onClick: () -> Unit) {
+private fun FoodRow(food: Food, onClick: () -> Unit, modifier: Modifier = Modifier) {
     AppCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         onClick = onClick,
-        contentPadding = PaddingValues(14.dp)
+        contentPadding = PaddingValues(Spacing.lg)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(categoryColor(food.category).copy(alpha = 0.14f)),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = food.name.take(1).uppercase(),
                     style = MaterialTheme.typography.titleMedium,
-                    color = categoryColor(food.category)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = Spacing.md)
             ) {
                 Text(
                     text = food.name,
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${food.category} · P ${food.proteinPer100g.formatDecimal()} · " +
@@ -226,14 +224,13 @@ private fun FoodRow(food: Food, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = food.caloriesPer100g.formatWhole(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.titleMedium
                 )
                 Text(
                     text = "kkal/100g",
@@ -258,8 +255,8 @@ private fun PortionSheetContent(food: Food, onConfirm: (Double) -> Unit) {
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xxl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         Column {
             Text(food.name, style = MaterialTheme.typography.headlineSmall)
@@ -270,22 +267,18 @@ private fun PortionSheetContent(food: Food, onConfirm: (Double) -> Unit) {
             )
         }
 
-        AppCard(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            spacing = 10.dp
-        ) {
+        AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.md) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = if (grams != null) preview.calories.formatWhole() else "—",
                     style = MaterialTheme.typography.displaySmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = " kkal",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 6.dp)
+                    modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.md)
                 )
             }
             StackedMacroBar(item = preview)
@@ -294,15 +287,12 @@ private fun PortionSheetContent(food: Food, onConfirm: (Double) -> Unit) {
 
         if (food.portions.isNotEmpty()) {
             Text("Takaran umum", style = MaterialTheme.typography.titleSmall)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 items(food.portions) { portion ->
                     val selected = grams == portion.grams
                     FilterChip(
                         selected = selected,
-                        onClick = {
-                            manualText = portion.grams.toPlainInput()
-                        },
-                        shape = RoundedCornerShape(50),
+                        onClick = { manualText = portion.grams.toPlainInput() },
                         label = { Text("${portion.label} · ${portion.grams.toInt()} g") }
                     )
                 }
@@ -325,14 +315,14 @@ private fun PortionSheetContent(food: Food, onConfirm: (Double) -> Unit) {
                 supportingText = if (grams == null) ({ Text("Isi berat 1–2000 g") }) else null,
                 label = { Text("Berat (g)") },
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal,
                     imeAction = ImeAction.Done
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 10.dp)
+                    .padding(horizontal = Spacing.md)
             )
             StepButton(
                 icon = R.drawable.ic_add,
@@ -351,17 +341,4 @@ private fun PortionSheetContent(food: Food, onConfirm: (Double) -> Unit) {
             modifier = Modifier.fillMaxWidth()
         )
     }
-}
-
-private fun categoryColor(category: String): Color = when (category) {
-    "Makanan pokok" -> Color(0xFFF59E0B)
-    "Lauk hewani" -> Color(0xFFEF4444)
-    "Lauk nabati" -> Color(0xFF16A34A)
-    "Sayuran" -> Color(0xFF22C55E)
-    "Buah" -> Color(0xFFEC4899)
-    "Minuman" -> Color(0xFF0EA5E9)
-    "Snack" -> Color(0xFFA855F7)
-    "Lemak" -> Color(0xFFF97316)
-    "Cereal" -> Color(0xFF8B5CF6)
-    else -> Color(0xFF64748B)
 }

@@ -11,7 +11,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 private val LightColorScheme = lightColorScheme(
-    primary = Green600,
+    // Teks hijau dan tombol berteks putih memakai Green700 (kontras 4,97:1 di atas putih).
+    // Green600 tetap warna merek untuk cincin, ikon aktif, dan aksen non-teks.
+    primary = Green700,
     onPrimary = Color.White,
     primaryContainer = Green100,
     onPrimaryContainer = Green900,
@@ -20,9 +22,9 @@ private val LightColorScheme = lightColorScheme(
     onSecondary = Color.White,
     secondaryContainer = Orange100,
     onSecondaryContainer = Orange900,
-    tertiary = WaterColor,
-    tertiaryContainer = WaterContainer,
-    onTertiaryContainer = Color(0xFF07344A),
+    tertiary = Green700,
+    tertiaryContainer = Green100,
+    onTertiaryContainer = Green900,
     background = Canvas,
     onBackground = Ink900,
     surface = Color.White,
@@ -51,9 +53,9 @@ private val DarkColorScheme = darkColorScheme(
     onSecondary = Orange900,
     secondaryContainer = Color(0xFF4A2508),
     onSecondaryContainer = Orange100,
-    tertiary = Color(0xFF38BDF8),
-    tertiaryContainer = Color(0xFF0B3446),
-    onTertiaryContainer = WaterContainer,
+    tertiary = Green500,
+    tertiaryContainer = Color(0xFF14432C),
+    onTertiaryContainer = Green100,
     background = DarkCanvas,
     onBackground = Color(0xFFE6EEE9),
     surface = DarkSurface,

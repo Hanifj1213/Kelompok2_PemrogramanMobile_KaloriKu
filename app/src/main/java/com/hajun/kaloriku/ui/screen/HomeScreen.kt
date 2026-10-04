@@ -1,6 +1,5 @@
 package com.hajun.kaloriku.ui.screen
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,23 +12,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hajun.kaloriku.R
@@ -39,29 +38,26 @@ import com.hajun.kaloriku.data.MealType
 import com.hajun.kaloriku.data.Stats
 import com.hajun.kaloriku.ui.MainViewModel
 import com.hajun.kaloriku.ui.charts.CalorieRing
-import com.hajun.kaloriku.ui.charts.MacroRingsRow
+import com.hajun.kaloriku.ui.charts.MacroBarsColumn
+import com.hajun.kaloriku.ui.components.AnimatedWholeNumber
 import com.hajun.kaloriku.ui.components.AppCard
 import com.hajun.kaloriku.ui.components.EmptyState
 import com.hajun.kaloriku.ui.components.IconBadge
 import com.hajun.kaloriku.ui.components.MealEntryCard
 import com.hajun.kaloriku.ui.components.PrimaryButton
 import com.hajun.kaloriku.ui.components.SectionHeader
-import com.hajun.kaloriku.ui.components.tapNoRipple
-import com.hajun.kaloriku.ui.components.accent
 import com.hajun.kaloriku.ui.components.iconRes
+import com.hajun.kaloriku.ui.theme.Spacing
 import com.hajun.kaloriku.ui.theme.Green600
-import com.hajun.kaloriku.ui.theme.Green700
-import com.hajun.kaloriku.ui.theme.Orange500
 import com.hajun.kaloriku.util.formatRelativeDay
 import com.hajun.kaloriku.util.formatWhole
 import com.hajun.kaloriku.util.greetingFor
 import com.hajun.kaloriku.util.toLocalDate
 import java.time.LocalDate
 import java.time.LocalTime
-import androidx.compose.foundation.layout.statusBarsPadding
 
 /**
- * Layar utama: sapaan, cincin kalori, capaian gizi,
+ * Layar utama: sapaan, cincin kalori sebagai angka besar, capaian gizi,
  * dan daftar makanan hari ini per waktu makan.
  */
 @Composable
@@ -70,7 +66,8 @@ fun HomeScreen(
     onAddMeal: (MealType) -> Unit,
     onOpenProfile: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenGoals: () -> Unit
+    onOpenGoals: () -> Unit,
+    onOpenEntry: (Long) -> Unit
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val goals by viewModel.dailyGoals.collectAsStateWithLifecycle()
@@ -97,8 +94,13 @@ fun HomeScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .imePadding(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(
+            start = Spacing.screen,
+            end = Spacing.screen,
+            top = Spacing.sm,
+            bottom = Spacing.xxl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item { HomeHeader(onOpenProfile = onOpenProfile) }
 
@@ -124,8 +126,8 @@ fun HomeScreen(
             item {
                 EmptyState(
                     icon = R.drawable.ic_no_food,
-                    title = "Belum ada catatan",
-                    message = "Foto makananmu, atau catat lewat pencarian dan barcode."
+                    message = "Belum ada catatan hari ini.",
+                    action = { PrimaryButton(text = "Catat", onClick = { onAddMeal(MealType.fromHour(LocalTime.now().hour)) }) }
                 )
             }
         } else {
@@ -141,7 +143,7 @@ fun HomeScreen(
                 } else {
                     mealEntries.forEach { entry ->
                         item(key = entry.id) {
-                            MealEntryCard(entry = entry, onDelete = { viewModel.deleteEntry(entry.id) })
+                            MealEntryCard(entry = entry, onClick = { onOpenEntry(entry.id) })
                         }
                     }
                 }
@@ -153,7 +155,7 @@ fun HomeScreen(
                 text = "Nilai gizi dari foto adalah perkiraan AI. Data pencarian memakai TKPI Kemenkes.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = Spacing.xs)
             )
         }
     }
@@ -169,103 +171,77 @@ private fun HomeHeader(onOpenProfile: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = LocalDate.now().formatRelativeDay(),
-                style = MaterialTheme.typography.headlineSmall
-            )
+            Text(text = LocalDate.now().formatRelativeDay(), style = MaterialTheme.typography.headlineSmall)
         }
         IconButton(onClick = onOpenProfile) {
             IconBadge(
                 icon = R.drawable.ic_person,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 container = MaterialTheme.colorScheme.primaryContainer,
-                size = 40.dp,
-                iconSize = 20.dp,
-                shape = CircleShape
+                size = 44.dp,
+                iconSize = 22.dp,
+                shape = CircleShape,
+                contentDescription = "Buka profil"
             )
         }
     }
 }
 
-/** Kartu utama: cincin kalori dengan angka sisa di tengahnya. */
+/** Kartu hero: cincin kalori dengan sisa kalori sebagai angka besar dan tiga bar makro mini. */
 @Composable
 private fun CalorieHeroCard(consumed: Double, target: Int, onOpenHistory: () -> Unit) {
     val over = consumed > target
     val remaining = (target - consumed)
     val ratio = if (target <= 0) 0f else (consumed / target).toFloat()
-    val ringColor = if (over) Orange500 else Color.White
+    val ringColor = if (over) MaterialTheme.colorScheme.error else Green600
 
     AppCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onOpenHistory,
-        border = false,
-        shape = MaterialTheme.shapes.extraLarge,
-        contentPadding = PaddingValues(20.dp)
+        contentPadding = PaddingValues(Spacing.lg)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.large)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(Green600, Green700),
-                        start = androidx.compose.ui.geometry.Offset.Zero,
-                        end = androidx.compose.ui.geometry.Offset(900f, 900f)
-                    )
-                )
-                .padding(20.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            CalorieRing(
+                progress = ratio,
+                size = 132.dp,
+                strokeWidth = 13.dp,
+                color = ringColor,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
-                CalorieRing(
-                    progress = ratio,
-                    size = 188.dp,
-                    strokeWidth = 16.dp,
-                    color = ringColor,
-                    trackColor = Color.White.copy(alpha = 0.22f)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = if (over) "Lebih" else "Sisa",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                        Text(
-                            text = kotlin.math.abs(remaining).formatWhole(),
-                            style = MaterialTheme.typography.displaySmall,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "kkal",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    HeroStat(label = "Masuk", value = "${consumed.formatWhole()} kkal")
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(32.dp)
-                            .background(Color.White.copy(alpha = 0.25f))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = if (over) "Lebih" else "Sisa",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    HeroStat(label = "Target", value = "${target.formatWhole()} kkal")
+                    AnimatedWholeNumber(
+                        value = kotlin.math.abs(remaining).toDouble(),
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "kkal",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+            ) {
+                HeroStat(label = "Masuk", value = "${consumed.formatWhole()} kkal")
+                HeroStat(label = "Target", value = "${target.formatWhole()} kkal")
                 Text(
-                    text = if (over) {
-                        "Sudah melebihi target hari ini"
-                    } else {
-                        "${(ratio * 100).toInt()}% dari target harian"
-                    },
+                    text = if (over) "Sudah melebihi target hari ini"
+                    else "${(ratio * 100).toInt()}% dari target harian",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.85f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -274,33 +250,27 @@ private fun CalorieHeroCard(consumed: Double, target: Int, onOpenHistory: () -> 
 
 @Composable
 private fun HeroStat(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.8f)
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(52.dp)
         )
-        Text(text = value, style = MaterialTheme.typography.titleMedium, color = Color.White)
+        Text(text = value, style = MaterialTheme.typography.titleSmall)
     }
 }
 
 @Composable
 private fun MacroCard(totals: FoodItem, goals: com.hajun.kaloriku.data.DailyGoals, onOpenGoals: () -> Unit) {
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = 14.dp) {
+    AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.md) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text = "Capaian gizi", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Text(
-                text = "Atur target",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                    .tapNoRipple(onClick = onOpenGoals)
-            )
+            TextButton(onClick = onOpenGoals) {
+                Text("Atur target", style = MaterialTheme.typography.labelLarge)
+            }
         }
-        MacroRingsRow(totals = totals, goals = goals)
+        MacroBarsColumn(totals = totals, goals = goals)
     }
 }
 
@@ -308,20 +278,19 @@ private fun MacroCard(totals: FoodItem, goals: com.hajun.kaloriku.data.DailyGoal
 private fun ProfilePromptCard(onOpenProfile: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        border = false,
-        spacing = 12.dp
+        color = MaterialTheme.colorScheme.primaryContainer,
+        spacing = Spacing.md
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 icon = R.drawable.ic_person,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                container = Color.White.copy(alpha = 0.5f)
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                container = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = Spacing.md)
             ) {
                 Text("Hitung target pribadimu", style = MaterialTheme.typography.titleSmall)
                 Text(
@@ -343,16 +312,16 @@ private fun MealGroupHeader(type: MealType, entries: List<MealEntry>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 6.dp),
+            .padding(top = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             painter = painterResource(type.iconRes),
             contentDescription = null,
-            tint = type.accent,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(Spacing.sm))
         Text(text = type.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
         if (entries.isNotEmpty()) {
             Text(
@@ -366,28 +335,24 @@ private fun MealGroupHeader(type: MealType, entries: List<MealEntry>) {
 
 @Composable
 private fun EmptyMealRow(type: MealType, onAdd: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .tapNoRipple(onClick = onAdd)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+    AppCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onAdd,
+        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md)
     ) {
-        Text(
-            text = "Belum ada ${type.label.lowercase()}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-        Icon(
-            painter = painterResource(R.drawable.ic_add),
-            contentDescription = "Tambah ${type.label}",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Belum ada ${type.label.lowercase()}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                painter = painterResource(R.drawable.ic_add),
+                contentDescription = "Tambah ${type.label}",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
-
-

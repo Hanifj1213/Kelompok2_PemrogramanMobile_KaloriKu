@@ -77,7 +77,7 @@ import com.hajun.kaloriku.ui.components.KaloriTopBar
 import com.hajun.kaloriku.ui.components.PrimaryButton
 import com.hajun.kaloriku.ui.components.SecondaryButton
 import com.hajun.kaloriku.ui.theme.Green500
-import com.hajun.kaloriku.ui.theme.Orange500
+import com.hajun.kaloriku.ui.theme.Spacing
 import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatWhole
 import java.util.concurrent.Executor
@@ -146,16 +146,16 @@ fun BarcodeScreen(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = Spacing.screen)
+                .padding(bottom = Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 320.dp)
                     .clip(MaterialTheme.shapes.large)
-                    .background(Color(0xFF101714)),
+                    .background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
                 when {
@@ -214,14 +214,14 @@ fun BarcodeScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconBadge(
                             icon = R.drawable.ic_barcode_scanner,
-                            tint = Orange500,
+                            tint = MaterialTheme.colorScheme.primary,
                             size = 40.dp,
                             iconSize = 20.dp
                         )
                         Text(
                             text = "Arahkan kamera ke barcode di kemasan. Kotak barcode biasanya ada di bagian belakang.",
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(start = 12.dp)
+                            modifier = Modifier.padding(start = Spacing.md)
                         )
                     }
                 }
@@ -241,7 +241,7 @@ private fun PermissionPrompt(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(24.dp),
+            .padding(Spacing.lg),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -253,7 +253,7 @@ private fun PermissionPrompt(
             iconSize = 30.dp,
             shape = CircleShape
         )
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         Text(
             text = "Butuh izin kamera",
             style = MaterialTheme.typography.titleMedium,
@@ -270,17 +270,17 @@ private fun PermissionPrompt(
             color = Color.White.copy(alpha = 0.75f),
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         PrimaryButton(
             text = if (permanentlyDenied) "Buka pengaturan" else "Izinkan kamera",
             onClick = if (permanentlyDenied) onSettings else onRequest,
             modifier = Modifier.fillMaxWidth()
         )
         if (denied && !permanentlyDenied) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
             SecondaryButton(text = "Buka pengaturan", onClick = onSettings, modifier = Modifier.fillMaxWidth())
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
         SecondaryButton(text = "Cari Makanan", onClick = onSearch, modifier = Modifier.fillMaxWidth())
     }
 }
@@ -290,13 +290,13 @@ private fun LoadingBox() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(24.dp)
+            .padding(Spacing.lg)
             .semantics { liveRegion = LiveRegionMode.Polite },
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         CircularProgressIndicator(color = Green500)
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         Text("Mencari data produk…", color = Color.White, textAlign = TextAlign.Center)
     }
 }
@@ -314,7 +314,7 @@ private fun SuccessBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(18.dp)
+            .padding(Spacing.lg)
             .semantics { liveRegion = LiveRegionMode.Polite },
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -327,14 +327,14 @@ private fun SuccessBox(
             iconSize = 28.dp,
             shape = CircleShape
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         Text(
             text = name,
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(Spacing.xs))
         Text(
             text = "${calories.formatWhole()} kkal",
             style = MaterialTheme.typography.displaySmall,
@@ -347,20 +347,20 @@ private fun SuccessBox(
             color = Color.White.copy(alpha = 0.75f),
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         Text(
             text = "P ${protein.formatDecimal()} g · K ${carbs.formatDecimal()} g · L ${fat.formatDecimal()} g",
             style = MaterialTheme.typography.labelLarge,
             color = Color.White.copy(alpha = 0.9f),
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
         PrimaryButton(
             text = "Pakai data ini",
             onClick = onUse,
             modifier = Modifier.fillMaxWidth(),
             containerColor = Color.White,
-            contentColor = Color(0xFF0F1A14)
+            contentColor = com.hajun.kaloriku.ui.theme.Ink900
         )
     }
 }
@@ -375,29 +375,29 @@ private fun ErrorBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(20.dp)
+            .padding(Spacing.lg)
             .semantics { liveRegion = LiveRegionMode.Polite },
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         IconBadge(
             icon = R.drawable.ic_error,
-            tint = Color(0xFFFFB4AB),
+            tint = MaterialTheme.colorScheme.error,
             container = Color.White.copy(alpha = 0.12f),
             size = 56.dp,
             iconSize = 28.dp,
             shape = CircleShape
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = Color.White,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(Spacing.md))
         SecondaryButton(text = retryText, onClick = onRetry, modifier = Modifier.fillMaxWidth())
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
         SecondaryButton(text = "Cari Makanan", onClick = onSearch, modifier = Modifier.fillMaxWidth())
     }
 }
@@ -563,7 +563,7 @@ private fun BarcodeCamera(onBarcode: (String) -> Unit, onError: (String) -> Unit
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = Spacing.xl)
                 .widthIn(max = 240.dp)
                 .fillMaxWidth()
                 .height(160.dp)

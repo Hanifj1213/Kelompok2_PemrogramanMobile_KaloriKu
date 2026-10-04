@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -36,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.hajun.kaloriku.data.DailyGoals
 import com.hajun.kaloriku.data.FoodItem
 import com.hajun.kaloriku.ui.theme.CarbsColor
@@ -45,9 +44,15 @@ import com.hajun.kaloriku.ui.theme.ProteinColor
 import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatWhole
 
+private const val GAUGE_START = 150f
+private const val GAUGE_SWEEP = 300f
+
+/** Animasi grafik singkat, tidak lebih dari 300 ms. */
+private const val CHART_ANIM_MS = 260
+
 /**
- * Cincin kemajuan berbentuk busur 300 derajat, dipakai sebagai angka utama di Beranda
- * dan layar hasil analisis.
+ * Cincin kemajuan berbentuk busur 300 derajat, dipakai sebagai angka utama di Beranda.
+ * Secara bawaan memakai warna merek Green600 (aksen non-teks).
  */
 @Composable
 fun CalorieRing(
@@ -63,7 +68,7 @@ fun CalorieRing(
     LaunchedEffect(progress) {
         animated.animateTo(
             targetValue = progress.coerceIn(0f, 1f),
-            animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = CHART_ANIM_MS, easing = FastOutSlowInEasing)
         )
     }
 
@@ -97,51 +102,6 @@ fun CalorieRing(
     }
 }
 
-/** Cincin kecil tanpa angka di tengah, untuk capaian protein, karbohidrat, dan lemak. */
-@Composable
-fun MacroRing(
-    progress: Float,
-    color: Color,
-    modifier: Modifier = Modifier,
-    size: Dp = 46.dp,
-    strokeWidth: Dp = 5.dp,
-    contentColor: Color = MaterialTheme.colorScheme.primary,
-    content: @Composable BoxScope.() -> Unit = {}
-) {
-    val animated = remember { Animatable(0f) }
-    LaunchedEffect(progress) {
-        animated.animateTo(progress.coerceIn(0f, 1f), tween(700, easing = FastOutSlowInEasing))
-    }
-    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(size)) {
-            val stroke = strokeWidth.toPx()
-            val inset = stroke / 2f
-            val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
-            drawArc(
-                color = contentColor.copy(alpha = 0.16f),
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(width = stroke)
-            )
-            if (animated.value > 0f) {
-                drawArc(
-                    color = color,
-                    startAngle = -90f,
-                    sweepAngle = 360f * animated.value,
-                    useCenter = false,
-                    topLeft = Offset(inset, inset),
-                    size = arcSize,
-                    style = Stroke(width = stroke, cap = StrokeCap.Round)
-                )
-            }
-        }
-        content()
-    }
-}
-
 /** Batang kemajuan satu gizi dengan label dan angka. */
 @Composable
 fun MacroBar(
@@ -155,7 +115,7 @@ fun MacroBar(
     val progress = if (target <= 0) 0f else (value / target).toFloat().coerceIn(0f, 1f)
     val animated = remember { Animatable(0f) }
     LaunchedEffect(progress) {
-        animated.animateTo(progress, tween(700, easing = FastOutSlowInEasing))
+        animated.animateTo(progress, tween(CHART_ANIM_MS, easing = FastOutSlowInEasing))
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -192,61 +152,28 @@ fun MacroBar(
     }
 }
 
-/** Susunan tiga ring makro untuk ringkasan harian. */
+/** Baris tiga bar makro untuk ringkasan harian di Beranda. */
 @Composable
-fun MacroRingsRow(totals: FoodItem, goals: DailyGoals, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        MacroRingItem(
+fun MacroBarsColumn(totals: FoodItem, goals: DailyGoals, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        MacroBar(
             label = "Protein",
             value = totals.proteinG,
             target = goals.proteinG.toDouble(),
             color = ProteinColor
         )
-        MacroRingItem(
-            label = "Karbo",
+        MacroBar(
+            label = "Karbohidrat",
             value = totals.carbsG,
             target = goals.carbsG.toDouble(),
             color = CarbsColor
         )
-        MacroRingItem(
+        MacroBar(
             label = "Lemak",
             value = totals.fatG,
             target = goals.fatG.toDouble(),
             color = FatColor
         )
-    }
-}
-
-@Composable
-private fun MacroRingItem(label: String, value: Double, target: Double, color: Color) {
-    val progress = if (target <= 0) 0f else (value / target).toFloat()
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        MacroRing(progress = progress, color = color) {
-            Text(
-                text = "${(progress * 100).toInt().coerceAtMost(999)}%",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "${value.formatDecimal()} g",
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "$label · ${target.formatWhole()} g",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
     }
 }
 
@@ -346,7 +273,7 @@ fun WeeklyBarChart(
                 color = color,
                 topLeft = Offset(left, top),
                 size = Size(barWidth, barHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+                cornerRadius = CornerRadius(radius, radius)
             )
         }
     }
@@ -368,6 +295,3 @@ fun WeeklyBarChart(
         }
     }
 }
-
-private const val GAUGE_START = 150f
-private const val GAUGE_SWEEP = 300f

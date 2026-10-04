@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,24 +31,23 @@ import com.hajun.kaloriku.data.MealEntry
 import com.hajun.kaloriku.data.Stats
 import com.hajun.kaloriku.ui.MainViewModel
 import com.hajun.kaloriku.ui.charts.WeeklyBarChart
-import com.hajun.kaloriku.ui.components.AppCard
 import com.hajun.kaloriku.ui.components.EmptyState
-import com.hajun.kaloriku.ui.components.IconBadge
 import com.hajun.kaloriku.ui.components.MealEntryCard
 import com.hajun.kaloriku.ui.components.PrimaryButton
 import com.hajun.kaloriku.ui.components.StatTile
+import com.hajun.kaloriku.ui.theme.Spacing
 import com.hajun.kaloriku.util.formatDayMonth
 import com.hajun.kaloriku.util.formatRelativeDay
 import com.hajun.kaloriku.util.formatWhole
 import com.hajun.kaloriku.util.toLocalDate
 import java.time.LocalDate
-import androidx.compose.foundation.layout.statusBarsPadding
 
-/** Riwayat makan lengkap dengan grafik tujuh hari terakhir. */
+/** Riwayat makan lengkap dengan ringkasan tujuh hari terakhir di bagian atas. */
 @Composable
 fun HistoryScreen(
     viewModel: MainViewModel,
-    onAddFood: () -> Unit
+    onAddFood: () -> Unit,
+    onOpenEntry: (Long) -> Unit
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val target by viewModel.dailyTarget.collectAsStateWithLifecycle()
@@ -67,24 +68,21 @@ fun HistoryScreen(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(
+            start = Spacing.screen,
+            end = Spacing.screen,
+            top = Spacing.sm,
+            bottom = Spacing.xxl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Riwayat", style = MaterialTheme.typography.headlineSmall)
-                    Text(
-                        text = "${entries.size} catatan tersimpan",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconBadge(
-                    icon = R.drawable.ic_bar_chart,
-                    tint = MaterialTheme.colorScheme.primary,
-                    size = 42.dp,
-                    iconSize = 20.dp
+            Column {
+                Text("Riwayat", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    text = "${entries.size} catatan tersimpan",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -101,18 +99,15 @@ fun HistoryScreen(
         }
 
         if (entries.isNotEmpty()) {
-            item { SummaryTiles(entries = entries, target = target) }
+            item { SummaryTiles(entries = entries) }
         }
 
         if (days.isEmpty()) {
             item {
                 EmptyState(
                     icon = R.drawable.ic_calendar_month,
-                    title = "Riwayat masih kosong",
-                    message = "Setelah kamu mencatat makanan, riwayat harian akan muncul di sini.",
-                    action = {
-                        PrimaryButton(text = "Catat makanan", onClick = onAddFood)
-                    }
+                    message = "Riwayat masih kosong. Catat makanan pertamamu.",
+                    action = { PrimaryButton(text = "Catat", onClick = onAddFood) }
                 )
             }
         }
@@ -123,7 +118,7 @@ fun HistoryScreen(
                 DayHeader(date = date, entries = dayEntries, target = target)
             }
             items(dayEntries, key = { it.id }) { entry ->
-                MealEntryCard(entry = entry, onDelete = { viewModel.deleteEntry(entry.id) })
+                MealEntryCard(entry = entry, onClick = { onOpenEntry(entry.id) }, modifier = Modifier.animateItem())
             }
         }
     }
@@ -138,58 +133,50 @@ private fun WeeklySummaryCard(
     totals: List<Double>,
     target: Int
 ) {
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = 14.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("7 hari terakhir", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(text = averageCalories.formatWhole(), style = MaterialTheme.typography.headlineMedium)
+    androidx.compose.material3.Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Text("7 hari terakhir", style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(text = averageCalories.formatWhole(), style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    text = " kkal rata-rata/hari",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
+                )
+            }
             Text(
-                text = " kkal rata-rata/hari",
+                text = "$daysOverTarget dari $recordedDays hari melebihi target",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 5.dp)
-            )
-        }
-        Text(
-            text = "$daysOverTarget dari $recordedDays hari melebihi target",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        WeeklyBarChart(
-            labels = days.map { it.formatDayMonth() },
-            values = totals,
-            target = target.toDouble(),
-            highlighted = days.lastIndex
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LegendDot(color = MaterialTheme.colorScheme.primary)
-            Text(
-                text = "Hari ini",
-                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            LegendDot(color = MaterialTheme.colorScheme.error)
-            Text(
-                text = "Melebihi target",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            WeeklyBarChart(
+                labels = days.map { it.formatDayMonth() },
+                values = totals,
+                target = target.toDouble(),
+                highlighted = days.lastIndex
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Box(
-                modifier = Modifier
-                    .width(14.dp)
-                    .height(2.dp)
-                    .background(MaterialTheme.colorScheme.outline)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Target ${target.formatWhole()} kkal",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LegendDot(color = MaterialTheme.colorScheme.primary)
+                Text("Hari ini", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.width(Spacing.md))
+                LegendDot(color = MaterialTheme.colorScheme.error)
+                Text("Melebihi", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.width(Spacing.md))
+                Text(
+                    text = "Target ${target.formatWhole()} kkal",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
@@ -199,19 +186,19 @@ private fun LegendDot(color: androidx.compose.ui.graphics.Color) {
     Box(
         modifier = Modifier
             .size(8.dp)
-            .background(color, androidx.compose.foundation.shape.CircleShape)
+            .background(color, CircleShape)
     )
-    Spacer(modifier = Modifier.width(5.dp))
+    Spacer(modifier = Modifier.width(Spacing.xs))
 }
 
 @Composable
-private fun SummaryTiles(entries: List<MealEntry>, target: Int) {
+private fun SummaryTiles(entries: List<MealEntry>) {
     val totalCalories = entries.sumOf { it.totalCalories }
     val totalItems = entries.sumOf { it.items.size }
     val recordedDays = entries.map { it.timestamp.toLocalDate() }.distinct().size
     val perDay = if (recordedDays == 0) 0.0 else totalCalories / recordedDays
 
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         StatTile(
             label = "Rata-rata",
             value = perDay.formatWhole(),
@@ -219,7 +206,7 @@ private fun SummaryTiles(entries: List<MealEntry>, target: Int) {
             modifier = Modifier.weight(1f)
         )
         StatTile(
-            label = "Hari tercatat",
+            label = "Hari",
             value = recordedDays.toString(),
             unit = "hari",
             modifier = Modifier.weight(1f)
@@ -240,7 +227,7 @@ private fun DayHeader(date: LocalDate, entries: List<MealEntry>, target: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp),
+            .padding(top = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -260,4 +247,3 @@ private fun DayHeader(date: LocalDate, entries: List<MealEntry>, target: Int) {
         )
     }
 }
-
