@@ -10,7 +10,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hajun.kaloriku.KaloriKuApp
-import com.hajun.kaloriku.data.AiException
 import com.hajun.kaloriku.data.AnalysisResult
 import com.hajun.kaloriku.data.dailyGoalsFlow
 import com.hajun.kaloriku.data.resolveDailyGoals
@@ -23,11 +22,13 @@ import com.hajun.kaloriku.data.FoodDatabase
 import com.hajun.kaloriku.data.FoodItem
 import com.hajun.kaloriku.data.MealEntry
 import com.hajun.kaloriku.data.MealType
+import com.hajun.kaloriku.data.NetworkResult
 import com.hajun.kaloriku.data.Profile
 import com.hajun.kaloriku.data.Stats
 import com.hajun.kaloriku.util.ImageUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -72,7 +73,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as KaloriKuApp).container
     private val repository = container.repository
     private val ai = container.ai
-    private val barcodeClient = container.barcode
+    private val productRepository = container.barcode
 
     val entries: StateFlow<List<MealEntry>> = repository.entries
     val profile: StateFlow<Profile?> = repository.profile
@@ -144,14 +145,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun runAnalysis(jpeg: ByteArray) {
         analysisState = AnalysisState.Loading
-        analysisState = try {
-            val result = ai.analyzeFood(jpeg)
-            kotlinx.coroutines.currentCoroutineContext().ensureActive()
-            editableItems.clear()
-            editableItems.addAll(result.items.map { EditableItem(it) })
-            AnalysisState.Success(result)
-        } catch (e: AiException) {
-            AnalysisState.Error(e.message ?: "Terjadi kesalahan. Coba lagi.")
+        analysisState = when (val result = ai.analyzeFood(jpeg)) {
+            is NetworkResult.Success -> {
+                currentCoroutineContext().ensureActive()
+                editableItems.clear()
+                editableItems.addAll(result.data.items.map { EditableItem(it) })
+                AnalysisState.Success(result.data)
+            }
+            is NetworkResult.Error -> AnalysisState.Error(result.message)
         }
     }
 
@@ -162,12 +163,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         barcodeJob?.cancel()
         barcodeState = BarcodeState.Loading
         barcodeJob = viewModelScope.launch {
-            barcodeState = try {
-                val item = barcodeClient.lookup(barcode)
-                ensureActive()
-                BarcodeState.Success(item, barcode)
-            } catch (e: AiException) {
-                BarcodeState.Error(e.message ?: "Gagal membaca barcode.")
+            barcodeState = when (val result = productRepository.lookup(barcode)) {
+                is NetworkResult.Success -> {
+                    ensureActive()
+                    BarcodeState.Success(result.data, barcode)
+                }
+                is NetworkResult.Error -> BarcodeState.Error(result.message)
             }
         }
     }

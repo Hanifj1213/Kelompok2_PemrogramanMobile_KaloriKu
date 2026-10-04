@@ -88,4 +88,12 @@ class AiParserTest {
         assertEquals("API key not valid", AiParser.extractErrorMessage("""{"error":{"message":"API key not valid"}}"""))
         assertNull(AiParser.extractErrorMessage("<html>"))
     }
+
+    @Test
+    fun extractErrorMessage_supportsStringError() {
+        assertEquals(
+            "API key required for remote API access",
+            AiParser.extractErrorMessage("""{"error":"API key required for remote API access"}""")
+        )
+    }
 }

@@ -1,9 +1,9 @@
 package com.hajun.kaloriku.data
 
+import com.hajun.kaloriku.data.remote.NetworkModule
+import kotlinx.serialization.json.JsonPrimitive
 import org.json.JSONException
 import org.json.JSONObject
-
-class AiException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /** Membaca jawaban server AI yang memakai format OpenAI-compatible. */
 object AiParser {
@@ -13,25 +13,18 @@ object AiParser {
         val root = parseObject(responseBody)
         val choices = root.optJSONArray("choices")
         if (choices == null || choices.length() == 0) {
-            throw AiException("AI tidak memberikan jawaban. Coba lagi.")
+            throw AiException(AiContent.EMPTY_MESSAGE)
         }
         val message = choices.optJSONObject(0)?.optJSONObject("message")
-            ?: throw AiException("AI tidak memberikan jawaban. Coba lagi.")
+            ?: throw AiException(AiContent.EMPTY_MESSAGE)
 
-        val text = when (val content = message.opt("content")) {
-            is String -> content
-            is org.json.JSONArray -> buildString {
-                for (i in 0 until content.length()) {
-                    val part = content.optJSONObject(i) ?: continue
-                    // Lewati bagian "reasoning", ambil teks jawaban final saja.
-                    if (part.optString("type") == "reasoning") continue
-                    append(part.optString("text"))
-                }
-            }
-            else -> ""
+        // Logika string/array (lewati bagian reasoning) dipakai bersama dengan jalur DTO.
+        val content = when (val raw = message.opt("content")) {
+            is String -> JsonPrimitive(raw)
+            is org.json.JSONArray -> NetworkModule.json.parseToJsonElement(raw.toString())
+            else -> null
         }
-        if (text.isBlank()) throw AiException("AI tidak memberikan jawaban. Coba lagi.")
-        return text
+        return AiContent.contentToText(content)
     }
 
     /** Mengubah teks JSON dari model menjadi [AnalysisResult]. */
@@ -64,9 +57,17 @@ object AiParser {
         )
     }
 
-    /** Mengambil pesan error dari body respons gagal, misalnya `{"error":{"message":"..."}}`. */
+    /**
+     * Mengambil pesan error dari body respons gagal. Mendukung dua bentuk:
+     * `{"error":{"message":"..."}}` dan `{"error":"..."}`.
+     */
     fun extractErrorMessage(responseBody: String): String? = try {
-        JSONObject(responseBody).optJSONObject("error")?.optString("message")?.takeIf { it.isNotBlank() }
+        val error = JSONObject(responseBody).opt("error")
+        when (error) {
+            is JSONObject -> error.optString("message").takeIf { it.isNotBlank() }
+            is String -> error.takeIf { it.isNotBlank() }
+            else -> null
+        }
     } catch (_: JSONException) {
         null
     }

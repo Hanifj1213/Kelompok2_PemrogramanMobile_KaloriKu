@@ -1,6 +1,6 @@
 package com.hajun.kaloriku
 
-import com.hajun.kaloriku.data.BarcodeClient
+import com.hajun.kaloriku.data.ProductParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,8 +8,9 @@ import org.junit.Test
 /**
  * Menguji parser barcode memakai respons asli dari Open Food Facts
  * (produk Teh Pucuk Harum, diambil langsung dari layanan).
+ * Dipindah dari BarcodeRealResponseTest setelah BarcodeClient dihapus.
  */
-class BarcodeRealResponseTest {
+class ProductRealResponseTest {
 
     private fun fixture(): String =
         javaClass.classLoader!!.getResourceAsStream("off_teh_pucuk.json")
@@ -18,7 +19,7 @@ class BarcodeRealResponseTest {
 
     @Test
     fun parseRealResponse_readsProductAndServing() {
-        val item = BarcodeClient.parseProduct("8996001600146", fixture())
+        val item = ProductParser.parseProduct("8996001600146", fixture())
 
         assertEquals("Teh Pucuk Harum Jasmine 350 ml (Mayora)", item.name)
         // Sajian 240 g, nilai per 100 g = 29,17 kkal -> 70 kkal per sajian

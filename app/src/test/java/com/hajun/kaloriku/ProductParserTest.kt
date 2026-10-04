@@ -1,12 +1,16 @@
 package com.hajun.kaloriku
 
-import com.hajun.kaloriku.data.BarcodeClient
 import com.hajun.kaloriku.data.AiException
+import com.hajun.kaloriku.data.ProductParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class BarcodeClientTest {
+/**
+ * Diperoleh dari BarcodeClientTest (pindahan setelah BarcodeClient dihapus).
+ * Menguji ProductParser tanpa jaringan.
+ */
+class ProductParserTest {
 
     @Test
     fun parseProduct_readsPer100g() {
@@ -22,7 +26,7 @@ class BarcodeClientTest {
                 "fat_100g":15
               }}}
         """.trimIndent()
-        val item = BarcodeClient.parseProduct("123", body)
+        val item = ProductParser.parseProduct("123", body)
         assertEquals("Biskuit Gandum (Contoh)", item.name)
         // 450 kkal/100 g dikonversi ke sajian 30 g
         assertEquals(135.0, item.calories, 0.01)
@@ -39,7 +43,7 @@ class BarcodeClientTest {
               "product_name":"Susu UHT",
               "nutriments":{"energy-kcal_100g":60,"proteins_100g":3,"carbohydrates_100g":5,"fat_100g":3}}}
         """.trimIndent()
-        val item = BarcodeClient.parseProduct("456", body)
+        val item = ProductParser.parseProduct("456", body)
         assertEquals(60.0, item.calories, 0.01)
         assertEquals(100.0, item.grams, 0.01)
     }
@@ -51,19 +55,19 @@ class BarcodeClientTest {
               "product_name":"Minuman Kotak",
               "nutriments":{"energy-kcal_serving":110,"carbohydrates_serving":25}}}
         """.trimIndent()
-        val item = BarcodeClient.parseProduct("789", body)
+        val item = ProductParser.parseProduct("789", body)
         assertEquals(110.0, item.calories, 0.01)
         assertEquals(25.0, item.carbsG, 0.01)
     }
 
     @Test(expected = AiException::class)
     fun parseProduct_notFound_throws() {
-        BarcodeClient.parseProduct("000", """{"status":0,"status_verbose":"product not found"}""")
+        ProductParser.parseProduct("000", """{"status":0,"status_verbose":"product not found"}""")
     }
 
     @Test(expected = AiException::class)
     fun parseProduct_noNutrition_throws() {
-        BarcodeClient.parseProduct("111", """{"status":1,"product":{"product_name":"X"}}""")
+        ProductParser.parseProduct("111", """{"status":1,"product":{"product_name":"X"}}""")
     }
 
     @Test
@@ -71,7 +75,7 @@ class BarcodeClientTest {
         val body = """
             {"status":1,"product":{"nutriments":{"energy-kcal_100g":100}}}
         """.trimIndent()
-        val item = BarcodeClient.parseProduct("999", body)
+        val item = ProductParser.parseProduct("999", body)
         assertTrue(item.name.contains("999"))
     }
 }
