@@ -4,9 +4,6 @@
 # For more details, see
 #   https://d.android.com/r/tools/r8/keep-rules
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ML Kit mendaftarkan komponen lewat refleksi pada `*Registrar`. Tanpa aturan ini,
+# build release melempar NoSuchMethodException dan barcode gagal jalan.
+-keep class com.google.mlkit.**Registrar { public <init>(); }

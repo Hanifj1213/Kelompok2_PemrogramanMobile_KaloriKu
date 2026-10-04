@@ -32,6 +32,10 @@ data class AnalysisResult(
     val note: String
 )
 
+// R8: Navigation 2.10 mencari kelas enum argumen lewat Class.forName di Android,
+// jadi nama kelas ini tidak boleh diubah. Konstanta juga tidak boleh diganti nama
+// karena disimpan lewat .name di MealJson.
+@androidx.annotation.Keep
 enum class MealType(val label: String) {
     SARAPAN("Sarapan"),
     MAKAN_SIANG("Makan Siang"),

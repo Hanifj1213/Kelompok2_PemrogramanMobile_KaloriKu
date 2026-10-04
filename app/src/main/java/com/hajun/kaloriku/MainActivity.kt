@@ -1,12 +1,9 @@
 package com.hajun.kaloriku
 
-import com.hajun.kaloriku.ui.components.rememberPhotoInput
-import com.hajun.kaloriku.data.MealType
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.activity.compose.BackHandler
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
@@ -29,22 +26,38 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import com.hajun.kaloriku.data.MealType
 import com.hajun.kaloriku.notification.MealReminderWorker
 import com.hajun.kaloriku.ui.MainViewModel
 import com.hajun.kaloriku.ui.components.AddMealSheet
 import com.hajun.kaloriku.ui.components.KaloriBottomBar
 import com.hajun.kaloriku.ui.components.bottomTabs
+import com.hajun.kaloriku.ui.components.rememberPhotoInput
+import com.hajun.kaloriku.ui.navigation.BarcodeRoute
+import com.hajun.kaloriku.ui.navigation.GoalsRoute
+import com.hajun.kaloriku.ui.navigation.HistoryRoute
+import com.hajun.kaloriku.ui.navigation.HomeRoute
+import com.hajun.kaloriku.ui.navigation.MealDetailRoute
+import com.hajun.kaloriku.ui.navigation.ProfileRoute
+import com.hajun.kaloriku.ui.navigation.ResultRoute
+import com.hajun.kaloriku.ui.navigation.SearchRoute
+import com.hajun.kaloriku.ui.navigation.resolveManualMealSelection
 import com.hajun.kaloriku.ui.screen.BarcodeScreen
 import com.hajun.kaloriku.ui.screen.FoodSearchScreen
 import com.hajun.kaloriku.ui.screen.GoalsScreen
 import com.hajun.kaloriku.ui.screen.HistoryScreen
 import com.hajun.kaloriku.ui.screen.HomeScreen
+import com.hajun.kaloriku.ui.screen.MealDetailScreen
 import com.hajun.kaloriku.ui.screen.ProfileScreen
 import com.hajun.kaloriku.ui.screen.ResultScreen
 import com.hajun.kaloriku.ui.theme.KaloriKuTheme
@@ -61,18 +74,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-object Routes {
-    const val HOME = "home"
-    const val HISTORY = "history"
-    const val PROFILE = "profile"
-    const val RESULT = "result"
-    const val SEARCH = "search"
-    const val BARCODE = "barcode"
-    const val GOALS = "goals"
-}
-
-private val tabRoutes = bottomTabs.map { it.route }.toSet()
-
 /**
  * Kerangka aplikasi: satu Scaffold dengan bilah navigasi bawah, lalu NavHost untuk isinya.
  * Layar detail menyembunyikan bilah bawah supaya ruangnya lega.
@@ -88,11 +89,15 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
     }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route
-    val showBottomBar = currentRoute == null || currentRoute in tabRoutes
+    val currentDestination = backStackEntry?.destination
+    val showBottomBar = bottomTabs.any { tab -> currentDestination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true }
+    val selectedTab = bottomTabs.firstOrNull { tab ->
+        currentDestination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
+    }?.route
 
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
     var requestedMeal by rememberSaveable { mutableStateOf<MealType?>(null) }
+
     val photoInput = rememberPhotoInput(
         onSelected = { uri ->
             val meal = requestedMeal
@@ -109,16 +114,16 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
         if (newMeal) viewModel.startManualMeal()
         if (meal != null) viewModel.mealType = meal
         requestedMeal = null
-        navController.navigate(Routes.SEARCH) { launchSingleTop = true }
+        navController.navigate(SearchRoute(appendToDraft = !newMeal)) { launchSingleTop = true }
     }
 
-    BackHandler(enabled = currentRoute != null && currentRoute != Routes.HOME && !showAddSheet) {
-        when (currentRoute) {
-            Routes.RESULT -> {
+    BackHandler(enabled = currentDestination != null && !isHome(currentDestination) && !showAddSheet) {
+        when {
+            currentDestination?.hierarchy?.any { it.hasRoute(ResultRoute::class) } == true -> {
                 viewModel.cancelAnalysis()
                 navController.goHome()
             }
-            Routes.BARCODE -> {
+            currentDestination?.hierarchy?.any { it.hasRoute(BarcodeRoute::class) } == true -> {
                 viewModel.resetBarcode()
                 navController.popBackStackOrHome()
             }
@@ -134,48 +139,49 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
             bottomBar = {
                 AnimatedVisibility(
                     visible = showBottomBar,
-                    enter = slideInVertically(tween(220)) { it } + fadeIn(tween(220)),
-                    exit = slideOutVertically(tween(180)) { it } + fadeOut(tween(120))
+                    enter = slideInVertically(tween(200)) { it } + fadeIn(tween(200)),
+                    exit = slideOutVertically(tween(160)) { it } + fadeOut(tween(120))
                 ) {
                     KaloriBottomBar(
-                        currentRoute = currentRoute,
-                        onSelect = { route -> navController.switchTab(route) },
-                        onAdd = { requestedMeal = null; showAddSheet = true }
+                        selectedRoute = selectedTab,
+                        onSelect = { route -> navController.switchTab(route) }
                     )
                 }
             }
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = Routes.HOME,
+                startDestination = HomeRoute,
                 modifier = Modifier.padding(innerPadding),
                 enterTransition = { fadeIn(tween(180)) },
                 exitTransition = { fadeOut(tween(140)) },
                 popEnterTransition = { fadeIn(tween(180)) },
                 popExitTransition = { fadeOut(tween(140)) }
             ) {
-                composable(Routes.HOME) {
+                composable<HomeRoute> {
                     HomeScreen(
                         viewModel = viewModel,
                         onAddMeal = { type -> requestedMeal = type; showAddSheet = true },
-                        onOpenProfile = { navController.switchTab(Routes.PROFILE) },
-                        onOpenHistory = { navController.switchTab(Routes.HISTORY) },
-                        onOpenGoals = { navController.navigate(Routes.GOALS) }
+                        onOpenProfile = { navController.switchTab(ProfileRoute) },
+                        onOpenHistory = { navController.switchTab(HistoryRoute) },
+                        onOpenGoals = { navController.navigate(GoalsRoute) },
+                        onOpenEntry = { entryId -> navController.navigate(MealDetailRoute(entryId)) }
                     )
                 }
-                composable(Routes.HISTORY) {
+                composable<HistoryRoute> {
                     HistoryScreen(
                         viewModel = viewModel,
-                        onAddFood = { requestedMeal = null; showAddSheet = true }
+                        onAddFood = { requestedMeal = null; showAddSheet = true },
+                        onOpenEntry = { entryId -> navController.navigate(MealDetailRoute(entryId)) }
                     )
                 }
-                composable(Routes.PROFILE) {
+                composable<ProfileRoute> {
                     ProfileScreen(
                         viewModel = viewModel,
-                        onOpenGoals = { navController.navigate(Routes.GOALS) }
+                        onOpenGoals = { navController.navigate(GoalsRoute) }
                     )
                 }
-                composable(Routes.RESULT) {
+                composable<ResultRoute> {
                     ResultScreen(
                         viewModel = viewModel,
                         onAddAnother = { openSearch(newMeal = false) },
@@ -186,14 +192,24 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                         onSaved = { navController.goHome() }
                     )
                 }
-                composable(Routes.SEARCH) {
+                composable<SearchRoute> { entry ->
+                    val route = entry.toRoute<SearchRoute>()
+                    LaunchedEffect(route) {
+                        val selection = resolveManualMealSelection(
+                            route = route,
+                            currentMealType = viewModel.mealType,
+                            freshMealType = MealType.fromHour(java.time.LocalTime.now().hour)
+                        )
+                        if (selection.startFresh) viewModel.startManualMeal()
+                        viewModel.mealType = selection.mealType
+                    }
                     FoodSearchScreen(
                         viewModel = viewModel,
                         onDone = { navController.openResult() },
                         onBack = { navController.popBackStackOrHome() }
                     )
                 }
-                composable(Routes.BARCODE) {
+                composable<BarcodeRoute> {
                     BarcodeScreen(
                         viewModel = viewModel,
                         onSearch = { viewModel.resetBarcode(); openSearch(newMeal = true) },
@@ -207,8 +223,15 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                         }
                     )
                 }
-                composable(Routes.GOALS) {
+                composable<GoalsRoute> {
                     GoalsScreen(viewModel = viewModel, onBack = { navController.popBackStackOrHome() })
+                }
+                composable<MealDetailRoute> { entry ->
+                    MealDetailScreen(
+                        viewModel = viewModel,
+                        backStackEntry = entry,
+                        onBack = { navController.popBackStackOrHome() }
+                    )
                 }
             }
         }
@@ -230,15 +253,18 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 },
                 onBarcode = {
                     showAddSheet = false
-                    navController.navigate(Routes.BARCODE)
+                    navController.navigate(BarcodeRoute)
                 }
             )
         }
     }
 }
 
+private fun isHome(destination: androidx.navigation.NavDestination): Boolean =
+    destination.hierarchy.any { it.hasRoute(HomeRoute::class) }
+
 /** Pindah tab tanpa menumpuk layar di belakang. */
-private fun NavHostController.switchTab(route: String) {
+private fun NavHostController.switchTab(route: Any) {
     navigate(route) {
         popUpTo(graph.startDestinationId) { saveState = true }
         launchSingleTop = true
@@ -247,24 +273,24 @@ private fun NavHostController.switchTab(route: String) {
 }
 
 /**
- * Membuka layar hasil setelah input. Layar input (cari, barcode, suara) dibuang dari
+ * Membuka layar hasil setelah input. Layar input (cari, barcode) dibuang dari
  * tumpukan supaya tombol kembali langsung menuju Beranda.
  */
 private fun NavHostController.openResult() {
-    if (popBackStack(Routes.RESULT, inclusive = false)) return
-    navigate(Routes.RESULT) {
-        popUpTo(Routes.HOME) { inclusive = false }
+    if (popBackStack(ResultRoute, inclusive = false)) return
+    navigate(ResultRoute) {
+        popUpTo(HomeRoute)
         launchSingleTop = true
     }
 }
 
 private fun NavHostController.goHome() {
-    popBackStack(Routes.HOME, inclusive = false)
+    popBackStack(HomeRoute, inclusive = false)
 }
 
 /** Kembali satu langkah; kalau tumpukan kosong, kembali ke Beranda. */
 private fun NavHostController.popBackStackOrHome() {
     if (!popBackStack()) {
-        navigate(Routes.HOME) { launchSingleTop = true }
+        navigate(HomeRoute) { launchSingleTop = true }
     }
 }
