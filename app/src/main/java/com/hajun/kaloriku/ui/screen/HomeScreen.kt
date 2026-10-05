@@ -67,7 +67,8 @@ fun HomeScreen(
     onOpenProfile: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenGoals: () -> Unit,
-    onOpenEntry: (Long) -> Unit
+    onOpenEntry: (Long) -> Unit,
+    onOpenEditProfile: () -> Unit = onOpenProfile
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val goals by viewModel.dailyGoals.collectAsStateWithLifecycle()
@@ -115,7 +116,7 @@ fun HomeScreen(
         item { MacroCard(totals = todayTotals, goals = goals, onOpenGoals = onOpenGoals) }
 
         if (profile == null) {
-            item { ProfilePromptCard(onOpenProfile = onOpenProfile) }
+            item { ProfilePromptCard(onOpenProfile = onOpenEditProfile) }
         }
 
         item {

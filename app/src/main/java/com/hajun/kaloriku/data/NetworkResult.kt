@@ -78,14 +78,5 @@ data class ErrorMessages(
                 }
             }
         )
-
-        /** Pesan untuk Open Food Facts. */
-        fun openFoodFacts(): ErrorMessages = ErrorMessages(
-            blankBaseUrl = "Alamat Open Food Facts belum diisi.",
-            timeout = "Open Food Facts terlalu lama merespons. Coba lagi.",
-            io = "Gagal terhubung ke Open Food Facts. Periksa koneksi internet.",
-            unreadable = "Respons Open Food Facts tidak bisa dibaca.",
-            http = { code, _ -> "Gagal menghubungi Open Food Facts ($code). Coba lagi nanti." }
-        )
     }
 }

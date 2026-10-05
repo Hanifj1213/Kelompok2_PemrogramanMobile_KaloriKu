@@ -4,7 +4,6 @@ import android.app.Application
 import com.hajun.kaloriku.data.FoodAnalysisRepository
 import com.hajun.kaloriku.data.FoodDatabase
 import com.hajun.kaloriku.data.MealLogRepository
-import com.hajun.kaloriku.data.ProductRepository
 import com.hajun.kaloriku.data.remote.NetworkModule
 
 /**
@@ -23,13 +22,7 @@ class AppContainer(application: Application) {
         client = NetworkModule.createAiClient(apiKey = BuildConfig.AI_API_KEY, logging = logging)
     )
 
-    private val offService = NetworkModule.createOpenFoodFactsService(
-        baseUrl = NetworkModule.OFF_BASE_URL,
-        client = NetworkModule.createOpenFoodFactsClient(logging = logging)
-    )
-
     val ai = FoodAnalysisRepository(aiService, aiBaseUrl, BuildConfig.AI_MODEL)
-    val barcode = ProductRepository(offService)
 
     init {
         FoodDatabase.ensureLoaded(application)

@@ -20,6 +20,7 @@ import com.hajun.kaloriku.MainActivity
 import com.hajun.kaloriku.R
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
+import com.hajun.kaloriku.data.ReminderTimes
 import com.hajun.kaloriku.util.toLocalDate
 import com.hajun.kaloriku.util.nextReminderDelayMillis
 import java.util.concurrent.TimeUnit
@@ -113,8 +114,8 @@ class MealReminderWorker(
          * Memakai PeriodicWorkRequest 24 jam dengan waktu mulai yang berbeda,
          * karena Android membatasi jumlah pekerjaan berkala per aplikasi.
          */
-        fun schedule(context: Context, hour: Int, mealType: String, tag: String) {
-            val delay = nextReminderDelayMillis(java.time.ZonedDateTime.now(), hour)
+        fun schedule(context: Context, hour: Int, minute: Int, mealType: String, tag: String) {
+            val delay = nextReminderDelayMillis(java.time.ZonedDateTime.now(), hour, minute)
             val request = PeriodicWorkRequestBuilder<MealReminderWorker>(24, TimeUnit.HOURS)
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS)
                 .setInputData(androidx.work.workDataOf(KEY_MEAL_TYPE to mealType))
@@ -124,15 +125,15 @@ class MealReminderWorker(
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 tag,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request
             )
         }
 
-        fun scheduleAll(context: Context) {
-            schedule(context, 8, "SARAPAN", "reminder_sarapan")
-            schedule(context, 13, "MAKAN_SIANG", "reminder_makan_siang")
-            schedule(context, 19, "MAKAN_MALAM", "reminder_makan_malam")
+        fun scheduleAll(context: Context, times: ReminderTimes = ReminderTimes()) {
+            schedule(context, times.breakfastHour, times.breakfastMinute, "SARAPAN", "reminder_sarapan")
+            schedule(context, times.lunchHour, times.lunchMinute, "MAKAN_SIANG", "reminder_makan_siang")
+            schedule(context, times.dinnerHour, times.dinnerMinute, "MAKAN_MALAM", "reminder_makan_malam")
         }
 
         fun cancelAll(context: Context) {

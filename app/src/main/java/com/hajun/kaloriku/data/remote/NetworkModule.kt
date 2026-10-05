@@ -16,7 +16,6 @@ import okhttp3.MediaType.Companion.toMediaType
  */
 object NetworkModule {
 
-    const val OFF_BASE_URL = "https://world.openfoodfacts.org/"
     private const val USER_AGENT = "KaloriKu/1.0 (Android)"
     private const val JSON_MEDIA_TYPE = "application/json; charset=utf-8"
 
@@ -56,21 +55,6 @@ object NetworkModule {
         }
         .build()
 
-    /** Klien HTTP untuk Open Food Facts: connect 15 dtk, read 30 dtk. */
-    fun createOpenFoodFactsClient(
-        connectTimeoutSeconds: Long = 15,
-        readTimeoutSeconds: Long = 30,
-        logging: HttpLoggingInterceptor? = null
-    ): OkHttpClient = baseBuilder(connectTimeoutSeconds, readTimeoutSeconds, logging)
-        .addInterceptor { chain ->
-            chain.proceed(
-                chain.request().newBuilder()
-                    .header("User-Agent", USER_AGENT)
-                    .build()
-            )
-        }
-        .build()
-
     /** Interceptor logging hanya untuk build debug, level BASIC (jangan BODY karena foto base64 besar). */
     fun debugLoggingInterceptor(): HttpLoggingInterceptor =
         HttpLoggingInterceptor().apply {
@@ -80,9 +64,6 @@ object NetworkModule {
 
     fun createAiService(baseUrl: String, client: OkHttpClient): AiApiService =
         retrofit(baseUrl, client).create(AiApiService::class.java)
-
-    fun createOpenFoodFactsService(baseUrl: String, client: OkHttpClient): OpenFoodFactsApiService =
-        retrofit(baseUrl, client).create(OpenFoodFactsApiService::class.java)
 
     private fun baseBuilder(
         connectTimeoutSeconds: Long,

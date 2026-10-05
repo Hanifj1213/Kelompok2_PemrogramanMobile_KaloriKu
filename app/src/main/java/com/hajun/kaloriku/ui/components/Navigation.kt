@@ -24,6 +24,9 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.hajun.kaloriku.R
@@ -52,6 +55,7 @@ fun KaloriBottomBar(
     selectedRoute: Any?,
     onSelect: (Any) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     NavigationBar(
         modifier = Modifier.navigationBarsPadding(),
         containerColor = MaterialTheme.colorScheme.surface,
@@ -61,7 +65,12 @@ fun KaloriBottomBar(
             val selected = selectedRoute == tab.route
             NavigationBarItem(
                 selected = selected,
-                onClick = { onSelect(tab.route) },
+                onClick = {
+                    if (!selected) {
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                        onSelect(tab.route)
+                    }
+                },
                 icon = {
                     Icon(
                         painter = painterResource(if (selected) tab.selectedIcon else tab.icon),
@@ -69,7 +78,8 @@ fun KaloriBottomBar(
                         modifier = Modifier.size(24.dp)
                     )
                 },
-                label = { Text(tab.label, style = MaterialTheme.typography.labelSmall) }
+                label = { Text(tab.label, style = MaterialTheme.typography.labelSmall) },
+                modifier = Modifier.testTag("tab_${tab.label}")
             )
         }
     }
@@ -82,8 +92,7 @@ fun AddMealSheet(
     onDismiss: () -> Unit,
     onCamera: () -> Unit,
     onGallery: () -> Unit,
-    onSearch: () -> Unit,
-    onBarcode: () -> Unit
+    onSearch: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -124,12 +133,6 @@ fun AddMealSheet(
                 title = "Cari di daftar makanan",
                 subtitle = "180 makanan Indonesia dari TKPI Kemenkes",
                 onClick = onSearch
-            )
-            AddMealRow(
-                icon = R.drawable.ic_barcode_scanner,
-                title = "Scan barcode kemasan",
-                subtitle = "Data gizi dari Open Food Facts",
-                onClick = onBarcode
             )
         }
     }

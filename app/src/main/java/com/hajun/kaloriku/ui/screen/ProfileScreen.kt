@@ -3,10 +3,11 @@ package com.hajun.kaloriku.ui.screen
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -16,18 +17,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,67 +33,48 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hajun.kaloriku.R
-import com.hajun.kaloriku.data.ActivityLevel
 import com.hajun.kaloriku.data.CalorieCalculator
-import com.hajun.kaloriku.data.Gender
-import com.hajun.kaloriku.data.Goal
 import com.hajun.kaloriku.data.Profile
 import com.hajun.kaloriku.ui.MainViewModel
 import com.hajun.kaloriku.ui.components.AppCard
+import com.hajun.kaloriku.ui.components.BmiCard
 import com.hajun.kaloriku.ui.components.IconBadge
-import com.hajun.kaloriku.ui.components.PrimaryButton
-import com.hajun.kaloriku.ui.components.StatTile
 import com.hajun.kaloriku.ui.theme.Spacing
+import com.hajun.kaloriku.util.bmiCategory
+import com.hajun.kaloriku.util.calculateBmi
 import com.hajun.kaloriku.util.formatDecimal
 import com.hajun.kaloriku.util.formatWhole
 
-private val AGE_RANGE = 10..100
-private val WEIGHT_RANGE = 20.0..300.0
-private val HEIGHT_RANGE = 100.0..250.0
-
-/** Profil pengguna: kartu ringkas target + IMT di atas, lalu daftar pengaturan berkelompok. */
+/** Profil pengguna: ringkasan target, status gizi IMT, data tubuh, dan pengingat makan. */
 @Composable
 fun ProfileScreen(
     viewModel: MainViewModel,
-    onOpenGoals: () -> Unit
+    onOpenGoals: () -> Unit,
+    onOpenEditProfile: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val existing by viewModel.profile.collectAsStateWithLifecycle()
     val goals by viewModel.dailyGoals.collectAsStateWithLifecycle()
 
-    var gender by rememberSaveable { mutableStateOf(existing?.gender ?: Gender.PRIA) }
-    var age by rememberSaveable { mutableStateOf(existing?.ageYears?.toString().orEmpty()) }
-    var weight by rememberSaveable { mutableStateOf(existing?.weightKg?.toInputText().orEmpty()) }
-    var height by rememberSaveable { mutableStateOf(existing?.heightCm?.toInputText().orEmpty()) }
-    var activity by rememberSaveable { mutableStateOf(existing?.activity ?: ActivityLevel.SEDANG) }
-    var goal by rememberSaveable { mutableStateOf(existing?.goal ?: Goal.JAGA) }
-
     val remindersOn by viewModel.remindersEnabled.collectAsStateWithLifecycle()
+    val reminderTimes by viewModel.reminderTimes.collectAsStateWithLifecycle()
     var notificationDenied by rememberSaveable { mutableStateOf(false) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         notificationDenied = !granted
     }
 
-    val ageValue = age.trim().toIntOrNull()?.takeIf { it in AGE_RANGE }
-    val weightValue = weight.toDecimalOrNull()?.takeIf { it in WEIGHT_RANGE }
-    val heightValue = height.toDecimalOrNull()?.takeIf { it in HEIGHT_RANGE }
-    val profile = if (ageValue != null && weightValue != null && heightValue != null) {
-        Profile(gender, ageValue, weightValue, heightValue, activity, goal)
-    } else {
-        null
-    }
+    val currentBmi = calculateBmi(weightKg = existing?.weightKg, heightCm = existing?.heightCm)
 
     LazyColumn(
         modifier = Modifier
@@ -125,75 +100,43 @@ fun ProfileScreen(
             }
         }
 
-        item { TargetSummaryCard(profile = profile, goalsCalories = goals.calories, onOpenGoals = onOpenGoals) }
+        item { TargetSummaryCard(profile = existing, bmi = currentBmi, goalsCalories = goals.calories, onOpenGoals = onOpenGoals) }
 
-        if (profile != null) {
-            item { BmiCard(profile = profile) }
-        }
+        item { BmiCard(bmi = currentBmi) }
 
         item {
-            SettingsGroup(title = "Data tubuh") {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Gender.entries.forEach { option ->
-                        FilterChip(
-                            selected = option == gender,
-                            onClick = { gender = option },
-                            label = { Text(option.label) }
+            AppCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onOpenEditProfile,
+                contentPadding = PaddingValues(Spacing.lg)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconBadge(
+                        icon = R.drawable.ic_person,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        container = MaterialTheme.colorScheme.primaryContainer
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = Spacing.md)
+                    ) {
+                        Text("Data tubuh & aktivitas", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = if (existing != null) {
+                                "${existing?.gender?.label} · ${existing?.ageYears} tahun · ${existing?.weightKg?.formatDecimal()} kg · ${existing?.heightCm?.formatDecimal()} cm"
+                            } else {
+                                "Belum diisi · Ketuk untuk menghitung target tubuhmu"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-                NumberField(
-                    label = "Usia (tahun)",
-                    value = age,
-                    onValueChange = { age = it },
-                    isError = age.isNotBlank() && ageValue == null,
-                    errorText = "Isi usia antara ${AGE_RANGE.first}–${AGE_RANGE.last} tahun",
-                    decimal = false
-                )
-                NumberField(
-                    label = "Berat badan (kg)",
-                    value = weight,
-                    onValueChange = { weight = it },
-                    isError = weight.isNotBlank() && weightValue == null,
-                    errorText = "Isi berat antara 20–300 kg"
-                )
-                NumberField(
-                    label = "Tinggi badan (cm)",
-                    value = height,
-                    onValueChange = { height = it },
-                    isError = height.isNotBlank() && heightValue == null,
-                    errorText = "Isi tinggi antara 100–250 cm"
-                )
-            }
-        }
-
-        item {
-            SettingsGroup(title = "Aktivitas & tujuan") {
-                Text("Tingkat aktivitas", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Column(modifier = Modifier.selectableGroup()) {
-                    ActivityLevel.entries.forEach { option ->
-                        ActivityRow(
-                            option = option,
-                            selected = option == activity,
-                            onSelect = { activity = option }
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Spacing.sm),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-                ) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        items(Goal.entries) { option ->
-                            FilterChip(
-                                selected = option == goal,
-                                onClick = { goal = option },
-                                label = { Text(option.label) }
-                            )
-                        }
-                    }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_chevron_right),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline
+                    )
                 }
             }
         }
@@ -205,7 +148,11 @@ fun ProfileScreen(
                 contentPadding = PaddingValues(Spacing.lg)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconBadge(icon = R.drawable.ic_flag_fill, tint = MaterialTheme.colorScheme.onPrimaryContainer, container = MaterialTheme.colorScheme.primaryContainer)
+                    IconBadge(
+                        icon = R.drawable.ic_flag_fill,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        container = MaterialTheme.colorScheme.primaryContainer
+                    )
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -233,7 +180,7 @@ fun ProfileScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Pengingat makan", style = MaterialTheme.typography.titleSmall)
                         Text(
-                            text = "Notifikasi pagi (08.00), siang (13.00), dan malam (19.00).",
+                            text = "Notifikasi sarapan (${reminderTimes.formatBreakfast()}), siang (${reminderTimes.formatLunch()}), dan malam (${reminderTimes.formatDinner()}).",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -251,6 +198,65 @@ fun ProfileScreen(
                         modifier = Modifier.semantics { contentDescription = "Pengingat makan" }
                     )
                 }
+                if (remindersOn) {
+                    Text(
+                        text = "Ketuk jadwal untuk mengubah jam makan:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = Spacing.xs)
+                    )
+                    ReminderTimeRow(
+                        icon = R.drawable.ic_wb_sunny,
+                        label = "Sarapan",
+                        time = reminderTimes.formatBreakfast(),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            android.app.TimePickerDialog(
+                                context,
+                                { _, h, m ->
+                                    viewModel.setReminderTimes(reminderTimes.copy(breakfastHour = h, breakfastMinute = m))
+                                },
+                                reminderTimes.breakfastHour,
+                                reminderTimes.breakfastMinute,
+                                true
+                            ).show()
+                        }
+                    )
+                    ReminderTimeRow(
+                        icon = R.drawable.ic_lunch_dining,
+                        label = "Makan siang",
+                        time = reminderTimes.formatLunch(),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            android.app.TimePickerDialog(
+                                context,
+                                { _, h, m ->
+                                    viewModel.setReminderTimes(reminderTimes.copy(lunchHour = h, lunchMinute = m))
+                                },
+                                reminderTimes.lunchHour,
+                                reminderTimes.lunchMinute,
+                                true
+                            ).show()
+                        }
+                    )
+                    ReminderTimeRow(
+                        icon = R.drawable.ic_nightlight,
+                        label = "Makan malam",
+                        time = reminderTimes.formatDinner(),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            android.app.TimePickerDialog(
+                                context,
+                                { _, h, m ->
+                                    viewModel.setReminderTimes(reminderTimes.copy(dinnerHour = h, dinnerMinute = m))
+                                },
+                                reminderTimes.dinnerHour,
+                                reminderTimes.dinnerMinute,
+                                true
+                            ).show()
+                        }
+                    )
+                }
                 if (notificationDenied && remindersOn) {
                     Text(
                         "Pengingat aktif, tetapi notifikasi belum diizinkan. Aktifkan izin Notifikasi di pengaturan perangkat.",
@@ -259,20 +265,6 @@ fun ProfileScreen(
                     )
                 }
             }
-        }
-
-        item {
-            PrimaryButton(
-                text = "Simpan",
-                onClick = {
-                    if (profile != null) {
-                        viewModel.saveProfile(profile)
-                        Toast.makeText(context, "Profil tersimpan. Target kalori diperbarui.", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                enabled = profile != null,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
 
         item {
@@ -295,7 +287,7 @@ private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> 
 
 /** Kartu ringkas: target kalori harian dan IMT. */
 @Composable
-private fun TargetSummaryCard(profile: Profile?, goalsCalories: Int, onOpenGoals: () -> Unit) {
+private fun TargetSummaryCard(profile: Profile?, bmi: Double?, goalsCalories: Int, onOpenGoals: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -332,10 +324,11 @@ private fun TargetSummaryCard(profile: Profile?, goalsCalories: Int, onOpenGoals
                 }
             }
         }
-        if (profile != null) {
-            val bmi = bmiOf(profile)
+        if (bmi != null) {
+            val category = bmiCategory(bmi)
+            val label = category?.label ?: "Normal"
             Text(
-                text = "IMT ${bmi.formatDecimal()} · ${bmiLabel(bmi)}",
+                text = "IMT ${bmi.formatDecimal()} · $label",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
@@ -352,115 +345,50 @@ private fun TargetSummaryCard(profile: Profile?, goalsCalories: Int, onOpenGoals
     }
 }
 
-/** Kartu status gizi berdasarkan IMT (indeks massa tubuh). */
 @Composable
-private fun BmiCard(profile: Profile) {
-    val bmi = bmiOf(profile)
-    val advice = when {
-        bmi < 18.5 -> "Tambahkan asupan bergizi dan konsultasikan dengan ahli gizi."
-        bmi < 23.0 -> "Berat badanmu dalam rentang sehat. Pertahankan pola makan."
-        bmi < 25.0 -> "Jaga porsi dan tingkatkan aktivitas fisik."
-        bmi < 30.0 -> "Kurangi camilan manis dan perbanyak sayur serta jalan kaki."
-        else -> "Sebaiknya konsultasikan dengan dokter atau ahli gizi."
-    }
-
-    AppCard(modifier = Modifier.fillMaxWidth(), spacing = Spacing.sm) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(
-                icon = R.drawable.ic_health_and_safety,
-                tint = MaterialTheme.colorScheme.primary,
-                size = 44.dp,
-                iconSize = 22.dp
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = Spacing.md)
-            ) {
-                Text(
-                    text = "Status gizi (IMT)",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(text = "${bmi.formatDecimal()} · ${bmiLabel(bmi)}", style = MaterialTheme.typography.titleMedium)
-            }
-        }
-        Text(text = advice, style = MaterialTheme.typography.bodyMedium)
-        Text(
-            text = "Ambang batas IMT orang Indonesia: kurang <18,5 · normal 18,5–22,9 · " +
-                "berlebih 23–24,9 · obesitas ≥25.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-private fun bmiOf(profile: Profile): Double {
-    val heightM = profile.heightCm / 100.0
-    return if (heightM <= 0) 0.0 else profile.weightKg / (heightM * heightM)
-}
-
-private fun bmiLabel(bmi: Double): String = when {
-    bmi < 18.5 -> "Kurang berat"
-    bmi < 23.0 -> "Normal"
-    bmi < 25.0 -> "Sedikit berlebih"
-    bmi < 30.0 -> "Berlebih"
-    else -> "Obesitas"
-}
-
-@Composable
-private fun ActivityRow(option: ActivityLevel, selected: Boolean, onSelect: () -> Unit) {
+private fun ReminderTimeRow(
+    @DrawableRes icon: Int,
+    label: String,
+    time: String,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-            .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick)
             .padding(horizontal = Spacing.md, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = null)
-        Column(modifier = Modifier.padding(start = Spacing.sm)) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = Spacing.md)
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+        ) {
             Text(
-                text = option.label,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                text = time,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
             )
-            Text(
-                text = option.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(18.dp)
             )
         }
     }
 }
-
-@Composable
-private fun NumberField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    isError: Boolean,
-    errorText: String,
-    decimal: Boolean = true
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        isError = isError,
-        supportingText = if (isError) ({ Text(errorText) }) else null,
-        singleLine = true,
-        shape = MaterialTheme.shapes.medium,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
-            imeAction = ImeAction.Next
-        ),
-        modifier = Modifier.fillMaxWidth()
-    )
-}
-
-private fun String.toDecimalOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()
-
-private fun Double.toInputText(): String =
-    if (this % 1.0 == 0.0) toLong().toString() else toString()

@@ -57,7 +57,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -95,7 +97,7 @@ import com.hajun.kaloriku.util.toPlainInput
 private val portionOptions = listOf(0.5 to "½", 1.0 to "1", 1.5 to "1½", 2.0 to "2")
 
 /**
- * Hasil analisis foto, barcode, atau input manual. Semua angka bisa disunting
+ * Hasil analisis foto atau input manual. Semua angka bisa disunting
  * sebelum disimpan ke catatan harian.
  */
 @Composable
@@ -128,44 +130,47 @@ fun ResultScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.screen)
-                .padding(bottom = Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                .padding(bottom = Spacing.lg)
         ) {
             AnimatedContent(
                 targetState = state,
                 transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(140)) },
                 label = "hasil"
             ) { current ->
-                when (current) {
-                    AnalysisState.Idle -> EmptyState(
-                        icon = R.drawable.ic_no_food,
-                        message = "Belum ada bahan. Pilih foto, cari makanan, atau scan barcode.",
-                        action = { PrimaryButton(text = "Kembali", onClick = onBack) }
-                    )
+                // Slot konten AnimatedContent menumpuk anaknya seperti Box, jadi isi tiap
+                // keadaan dibungkus Column supaya kartu-kartunya tersusun ke bawah.
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    when (current) {
+                        AnalysisState.Idle -> EmptyState(
+                            icon = R.drawable.ic_no_food,
+                            message = "Belum ada bahan. Pilih foto atau cari di daftar makanan.",
+                            action = { PrimaryButton(text = "Kembali", onClick = onBack) }
+                        )
 
-                    AnalysisState.Loading -> LoadingContent()
+                        AnalysisState.Loading -> LoadingContent()
 
-                    is AnalysisState.Error -> ErrorContent(
-                        message = current.message,
-                        onRetry = if (viewModel.canRetry) viewModel::retry else null,
-                        onBack = onBack
-                    )
+                        is AnalysisState.Error -> ErrorContent(
+                            message = current.message,
+                            onRetry = if (viewModel.canRetry) viewModel::retry else null,
+                            onBack = onBack
+                        )
 
-                    is AnalysisState.Success -> SuccessContent(
-                        result = current.result,
-                        items = items,
-                        photo = photo,
-                        mealType = viewModel.mealType,
-                        onMealTypeChange = { viewModel.mealType = it },
-                        onPortionChange = viewModel::setPortion,
-                        onGramsChange = viewModel::setGrams,
-                        onRemove = viewModel::removeItem,
-                        onAddAnother = onAddAnother,
-                        onBack = onBack,
-                        onValidityChange = { id, valid ->
-                            invalidGrams = if (valid) invalidGrams - id else (invalidGrams + id).distinct()
-                        }
-                    )
+                        is AnalysisState.Success -> SuccessContent(
+                            result = current.result,
+                            items = items,
+                            photo = photo,
+                            mealType = viewModel.mealType,
+                            onMealTypeChange = { viewModel.mealType = it },
+                            onPortionChange = viewModel::setPortion,
+                            onGramsChange = viewModel::setGrams,
+                            onRemove = viewModel::removeItem,
+                            onAddAnother = onAddAnother,
+                            onBack = onBack,
+                            onValidityChange = { id, valid ->
+                                invalidGrams = if (valid) invalidGrams - id else (invalidGrams + id).distinct()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -178,7 +183,8 @@ fun ResultScreen(
 
 /** Bar simpan yang menempel di bawah layar. */
 @Composable
-private fun SaveBar(calories: Double, enabled: Boolean, onSave: () -> Unit) {
+internal fun SaveBar(calories: Double, enabled: Boolean, onSave: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
         Column(
             modifier = Modifier
@@ -201,7 +207,10 @@ private fun SaveBar(calories: Double, enabled: Boolean, onSave: () -> Unit) {
             }
             PrimaryButton(
                 text = "Simpan",
-                onClick = onSave,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                    onSave()
+                },
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -502,7 +511,7 @@ private fun MacroColumn(label: String, grams: Double, color: Color) {
 /** Kartu satu makanan yang beratnya bisa disunting langsung. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FoodItemCard(
+internal fun FoodItemCard(
     item: EditableItem,
     onPortionChange: (Double) -> Unit,
     onGramsChange: (Double) -> Unit,
@@ -510,6 +519,7 @@ private fun FoodItemCard(
     onValidityChange: (Boolean) -> Unit
 ) {
     val food = item.current
+    val haptic = LocalHapticFeedback.current
     var gramsText by rememberSaveable(item.id) { mutableStateOf(food.grams.toPlainInput()) }
     var syncedGrams by rememberSaveable(item.id) { mutableStateOf(food.grams) }
     val grams = parseDecimalInput(gramsText, 1.0..3000.0)
@@ -585,6 +595,7 @@ private fun FoodItemCard(
                 SegmentedButton(
                     selected = grams != null && item.portion == factor,
                     onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                         gramsText = portionGrams.toPlainInput()
                         syncedGrams = portionGrams
                         onValidityChange(true)

@@ -23,9 +23,17 @@ class MealLogRepository(context: Context, preferencesName: String = PREFS_NAME) 
     private val _remindersEnabled = MutableStateFlow(prefs.getBoolean(KEY_REMINDERS_ENABLED, true))
     val remindersEnabled: StateFlow<Boolean> = _remindersEnabled.asStateFlow()
 
+    private val _reminderTimes = MutableStateFlow(ExtraJson.reminderTimesFromJson(prefs.getString(KEY_REMINDER_TIMES, null)))
+    val reminderTimes: StateFlow<ReminderTimes> = _reminderTimes.asStateFlow()
+
     fun setRemindersEnabled(enabled: Boolean) {
         _remindersEnabled.value = enabled
         prefs.edit().putBoolean(KEY_REMINDERS_ENABLED, enabled).apply()
+    }
+
+    fun saveReminderTimes(times: ReminderTimes) {
+        _reminderTimes.value = times
+        prefs.edit().putString(KEY_REMINDER_TIMES, ExtraJson.reminderTimesToJson(times)).apply()
     }
 
     fun addEntry(entry: MealEntry) {
@@ -68,5 +76,6 @@ class MealLogRepository(context: Context, preferencesName: String = PREFS_NAME) 
 
         const val KEY_GOALS = "goals"
         const val KEY_REMINDERS_ENABLED = "reminders_enabled"
+        const val KEY_REMINDER_TIMES = "reminder_times"
     }
 }

@@ -30,8 +30,19 @@ class ReminderTimingTest {
         assertEquals(24 * 60 * 60_000L, nextReminderDelayMillis(now, 8))
     }
 
+    @Test
+    fun schedulesWithCustomMinute() {
+        val now = ZonedDateTime.parse("2026-10-02T07:15:00+07:00[Asia/Jakarta]")
+        assertEquals(15 * 60_000L, nextReminderDelayMillis(now, 7, 30))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun rejectsInvalidHour() {
         nextReminderDelayMillis(ZonedDateTime.now(), 24)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsInvalidMinute() {
+        nextReminderDelayMillis(ZonedDateTime.now(), 8, 60)
     }
 }

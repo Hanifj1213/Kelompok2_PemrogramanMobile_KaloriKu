@@ -60,3 +60,17 @@ data class MealEntry(
 ) {
     val totalCalories: Double get() = items.sumOf { it.calories }
 }
+
+/** Jadwal jam pengingat untuk sarapan, makan siang, dan makan malam. */
+data class ReminderTimes(
+    val breakfastHour: Int = 8,
+    val breakfastMinute: Int = 0,
+    val lunchHour: Int = 13,
+    val lunchMinute: Int = 0,
+    val dinnerHour: Int = 19,
+    val dinnerMinute: Int = 0
+) {
+    fun formatBreakfast(): String = String.format(java.util.Locale.US, "%02d.%02d", breakfastHour, breakfastMinute)
+    fun formatLunch(): String = String.format(java.util.Locale.US, "%02d.%02d", lunchHour, lunchMinute)
+    fun formatDinner(): String = String.format(java.util.Locale.US, "%02d.%02d", dinnerHour, dinnerMinute)
+}

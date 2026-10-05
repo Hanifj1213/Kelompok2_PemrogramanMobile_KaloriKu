@@ -23,10 +23,10 @@ data object ProfileRoute
 data object ResultRoute
 
 @Serializable
-data object BarcodeRoute
+data object GoalsRoute
 
 @Serializable
-data object GoalsRoute
+data object EditProfileRoute
 
 /** Pencarian makanan. `mealType` mengisi waktu makan; `appendToDraft` menambah ke draf yang ada. */
 @Serializable

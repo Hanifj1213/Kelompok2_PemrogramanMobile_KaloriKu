@@ -28,14 +28,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -47,16 +50,18 @@ import com.hajun.kaloriku.ui.components.AddMealSheet
 import com.hajun.kaloriku.ui.components.KaloriBottomBar
 import com.hajun.kaloriku.ui.components.bottomTabs
 import com.hajun.kaloriku.ui.components.rememberPhotoInput
-import com.hajun.kaloriku.ui.navigation.BarcodeRoute
+import com.hajun.kaloriku.ui.navigation.EditProfileRoute
 import com.hajun.kaloriku.ui.navigation.GoalsRoute
 import com.hajun.kaloriku.ui.navigation.HistoryRoute
 import com.hajun.kaloriku.ui.navigation.HomeRoute
+import com.hajun.kaloriku.ui.navigation.KaloriNavHost
 import com.hajun.kaloriku.ui.navigation.MealDetailRoute
 import com.hajun.kaloriku.ui.navigation.ProfileRoute
 import com.hajun.kaloriku.ui.navigation.ResultRoute
 import com.hajun.kaloriku.ui.navigation.SearchRoute
 import com.hajun.kaloriku.ui.navigation.resolveManualMealSelection
-import com.hajun.kaloriku.ui.screen.BarcodeScreen
+import com.hajun.kaloriku.ui.navigation.switchTab
+import com.hajun.kaloriku.ui.screen.EditProfileScreen
 import com.hajun.kaloriku.ui.screen.FoodSearchScreen
 import com.hajun.kaloriku.ui.screen.GoalsScreen
 import com.hajun.kaloriku.ui.screen.HistoryScreen
@@ -86,10 +91,12 @@ class MainActivity : ComponentActivity() {
 fun AppRoot(viewModel: MainViewModel = viewModel()) {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
     val remindersEnabled by viewModel.remindersEnabled.collectAsStateWithLifecycle()
-    LaunchedEffect(remindersEnabled) {
-        if (remindersEnabled) MealReminderWorker.scheduleAll(context) else MealReminderWorker.cancelAll(context)
+    val reminderTimes by viewModel.reminderTimes.collectAsStateWithLifecycle()
+    LaunchedEffect(remindersEnabled, reminderTimes) {
+        if (remindersEnabled) MealReminderWorker.scheduleAll(context, reminderTimes) else MealReminderWorker.cancelAll(context)
     }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -127,10 +134,6 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 viewModel.cancelAnalysis()
                 navController.goHome()
             }
-            currentDestination?.hierarchy?.any { it.hasRoute(BarcodeRoute::class) } == true -> {
-                viewModel.resetBarcode()
-                navController.popBackStackOrHome()
-            }
             else -> navController.popBackStackOrHome()
         }
     }
@@ -144,7 +147,11 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 // Tombol "Catat" muncul di layar tab; lembar pilihan sama untuk semua cara.
                 if (showBottomBar) {
                     ExtendedFloatingActionButton(
-                        onClick = { requestedMeal = null; showAddSheet = true },
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            requestedMeal = null
+                            showAddSheet = true
+                        },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.ic_add),
@@ -152,6 +159,7 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                             )
                         },
                         text = { Text("Catat") },
+                        modifier = Modifier.semantics { contentDescription = "Catat makanan" },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
@@ -170,14 +178,9 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 }
             }
         ) { innerPadding ->
-            NavHost(
+            KaloriNavHost(
                 navController = navController,
-                startDestination = HomeRoute,
-                modifier = Modifier.padding(innerPadding),
-                enterTransition = { fadeIn(tween(180)) },
-                exitTransition = { fadeOut(tween(140)) },
-                popEnterTransition = { fadeIn(tween(180)) },
-                popExitTransition = { fadeOut(tween(140)) }
+                modifier = Modifier.padding(innerPadding)
             ) {
                 composable<HomeRoute> {
                     HomeScreen(
@@ -186,7 +189,8 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                         onOpenProfile = { navController.switchTab(ProfileRoute) },
                         onOpenHistory = { navController.switchTab(HistoryRoute) },
                         onOpenGoals = { navController.navigate(GoalsRoute) },
-                        onOpenEntry = { entryId -> navController.navigate(MealDetailRoute(entryId)) }
+                        onOpenEntry = { entryId -> navController.navigate(MealDetailRoute(entryId)) },
+                        onOpenEditProfile = { navController.navigate(EditProfileRoute) }
                     )
                 }
                 composable<HistoryRoute> {
@@ -199,7 +203,8 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 composable<ProfileRoute> {
                     ProfileScreen(
                         viewModel = viewModel,
-                        onOpenGoals = { navController.navigate(GoalsRoute) }
+                        onOpenGoals = { navController.navigate(GoalsRoute) },
+                        onOpenEditProfile = { navController.navigate(EditProfileRoute) }
                     )
                 }
                 composable<ResultRoute> {
@@ -230,22 +235,11 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                         onBack = { navController.popBackStackOrHome() }
                     )
                 }
-                composable<BarcodeRoute> {
-                    BarcodeScreen(
-                        viewModel = viewModel,
-                        onSearch = { viewModel.resetBarcode(); openSearch(newMeal = true) },
-                        onResult = {
-                            viewModel.confirmBarcodePortion()
-                            navController.openResult()
-                        },
-                        onBack = {
-                            viewModel.resetBarcode()
-                            navController.popBackStackOrHome()
-                        }
-                    )
-                }
                 composable<GoalsRoute> {
                     GoalsScreen(viewModel = viewModel, onBack = { navController.popBackStackOrHome() })
+                }
+                composable<EditProfileRoute> {
+                    EditProfileScreen(viewModel = viewModel, onBack = { navController.popBackStackOrHome() })
                 }
                 composable<MealDetailRoute> { entry ->
                     MealDetailScreen(
@@ -271,10 +265,6 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
                 onSearch = {
                     showAddSheet = false
                     openSearch(newMeal = true)
-                },
-                onBarcode = {
-                    showAddSheet = false
-                    navController.navigate(BarcodeRoute)
                 }
             )
         }
@@ -284,17 +274,8 @@ fun AppRoot(viewModel: MainViewModel = viewModel()) {
 private fun isHome(destination: androidx.navigation.NavDestination): Boolean =
     destination.hierarchy.any { it.hasRoute(HomeRoute::class) }
 
-/** Pindah tab tanpa menumpuk layar di belakang. */
-private fun NavHostController.switchTab(route: Any) {
-    navigate(route) {
-        popUpTo(graph.startDestinationId) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
-}
-
 /**
- * Membuka layar hasil setelah input. Layar input (cari, barcode) dibuang dari
+ * Membuka layar hasil setelah input. Layar input (cari makanan) dibuang dari
  * tumpukan supaya tombol kembali langsung menuju Beranda.
  */
 private fun NavHostController.openResult() {

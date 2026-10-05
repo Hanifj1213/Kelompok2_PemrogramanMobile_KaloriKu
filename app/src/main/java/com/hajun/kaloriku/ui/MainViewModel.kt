@@ -24,6 +24,7 @@ import com.hajun.kaloriku.data.MealEntry
 import com.hajun.kaloriku.data.MealType
 import com.hajun.kaloriku.data.NetworkResult
 import com.hajun.kaloriku.data.Profile
+import com.hajun.kaloriku.data.ReminderTimes
 import com.hajun.kaloriku.data.Stats
 import com.hajun.kaloriku.util.ImageUtils
 import kotlinx.coroutines.Dispatchers
@@ -60,25 +61,25 @@ data class EditableItem(
     }
 }
 
-/** Status pencarian barcode. */
-sealed interface BarcodeState {
-    data object Idle : BarcodeState
-    data object Loading : BarcodeState
-    data class Success(val item: FoodItem, val barcode: String) : BarcodeState
-    data class Error(val message: String) : BarcodeState
-}
-
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val container = (application as KaloriKuApp).container
     private val repository = container.repository
     private val ai = container.ai
-    private val productRepository = container.barcode
 
     val entries: StateFlow<List<MealEntry>> = repository.entries
     val profile: StateFlow<Profile?> = repository.profile
 
     val remindersEnabled = repository.remindersEnabled
+    val reminderTimes = repository.reminderTimes
+
+    fun setReminderTimes(times: ReminderTimes) {
+        repository.saveReminderTimes(times)
+        val context = getApplication<Application>()
+        if (remindersEnabled.value) {
+            MealReminderWorker.scheduleAll(context, times)
+        }
+    }
 
     val dailyGoals: StateFlow<DailyGoals> = dailyGoalsFlow(repository.profile, repository.goals)
         .stateIn(
@@ -101,13 +102,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val editableItems = mutableStateListOf<EditableItem>()
     val canRetry: Boolean get() = lastJpeg != null
 
-    // --- Barcode ---
-    var barcodeState by mutableStateOf<BarcodeState>(BarcodeState.Idle)
-        private set
-
     private var lastJpeg: ByteArray? = null
     private var analysisJob: Job? = null
-    private var barcodeJob: Job? = null
 
     // ------------------------------------------------------------------ foto
 
@@ -156,48 +152,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --------------------------------------------------------------- barcode
-
-    fun lookupBarcode(barcode: String) {
-        if (barcodeState is BarcodeState.Loading) return
-        barcodeJob?.cancel()
-        barcodeState = BarcodeState.Loading
-        barcodeJob = viewModelScope.launch {
-            barcodeState = when (val result = productRepository.lookup(barcode)) {
-                is NetworkResult.Success -> {
-                    ensureActive()
-                    BarcodeState.Success(result.data, barcode)
-                }
-                is NetworkResult.Error -> BarcodeState.Error(result.message)
-            }
-        }
-    }
-
-    fun addBarcodeResult(item: FoodItem) {
-        resetAnalysis()
-        resetBarcode()
-        editableItems.add(EditableItem(item))
-        mealType = MealType.fromHour(LocalTime.now().hour)
-        barcodeState = BarcodeState.Idle
-    }
-
-    /** Setelah barcode dikenali, pengguna mengubah porsi memakai layar yang sama dengan hasil foto. */
-    fun confirmBarcodePortion() {
-        if (editableItems.isEmpty()) return
-        val item = editableItems.first()
-        analysisState = AnalysisState.Success(
-            AnalysisResult(isFood = true, items = listOf(item.current), note = "Data dari barcode Open Food Facts.")
-        )
-        photo = null
-    }
-
-    fun resetBarcode() {
-        barcodeJob?.cancel()
-        barcodeJob = null
-        barcodeState = BarcodeState.Idle
-    }
-
-    // ----------------------------------------------------------------- suara
+    // ----------------------------------------------------------------- manual
 
     fun startManualMeal() = resetAnalysis()
 
@@ -269,7 +224,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setRemindersEnabled(enabled: Boolean) {
         repository.setRemindersEnabled(enabled)
         val context = getApplication<Application>()
-        if (enabled) MealReminderWorker.scheduleAll(context) else MealReminderWorker.cancelAll(context)
+        if (enabled) MealReminderWorker.scheduleAll(context, reminderTimes.value) else MealReminderWorker.cancelAll(context)
     }
 
     // ----------------------------------------------------------------- bantuan

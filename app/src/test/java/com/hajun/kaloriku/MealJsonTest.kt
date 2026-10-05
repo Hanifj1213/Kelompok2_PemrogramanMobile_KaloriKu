@@ -40,4 +40,22 @@ class MealJsonTest {
         assertEquals(profile, MealJson.profileFromJson(MealJson.profileToJson(profile)))
         assertNull(MealJson.profileFromJson("{}"))
     }
+
+    @Test
+    fun reminderTimes_roundTripAndFallback() {
+        val custom = com.hajun.kaloriku.data.ReminderTimes(7, 30, 12, 15, 18, 45)
+        val json = com.hajun.kaloriku.data.ExtraJson.reminderTimesToJson(custom)
+        val restored = com.hajun.kaloriku.data.ExtraJson.reminderTimesFromJson(json)
+        assertEquals(custom, restored)
+        assertEquals("07.30", restored.formatBreakfast())
+        assertEquals("12.15", restored.formatLunch())
+        assertEquals("18.45", restored.formatDinner())
+
+        // Fallback saat null / kosong
+        val defaultTimes = com.hajun.kaloriku.data.ExtraJson.reminderTimesFromJson(null)
+        assertEquals(8, defaultTimes.breakfastHour)
+        assertEquals(0, defaultTimes.breakfastMinute)
+        assertEquals(13, defaultTimes.lunchHour)
+        assertEquals(19, defaultTimes.dinnerHour)
+    }
 }

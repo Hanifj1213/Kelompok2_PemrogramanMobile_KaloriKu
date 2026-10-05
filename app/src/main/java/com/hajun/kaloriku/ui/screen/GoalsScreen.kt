@@ -31,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -57,6 +59,7 @@ import com.hajun.kaloriku.util.formatWhole
 @Composable
 fun GoalsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val goals by viewModel.dailyGoals.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
 
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     var protein by rememberSaveable { mutableStateOf(goals.proteinG.toString()) }
@@ -213,6 +216,7 @@ fun GoalsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     text = "Simpan target",
                     onClick = {
                         if (proteinValue != null && carbsValue != null && fatValue != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                             viewModel.saveGoals(DailyGoals(goals.calories, proteinValue, carbsValue, fatValue))
                             onBack()
                         }

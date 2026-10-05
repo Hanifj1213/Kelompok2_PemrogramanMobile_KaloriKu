@@ -24,11 +24,17 @@ val Canvas = Color(0xFFF5F8F6)
 val Red500 = Color(0xFFE5484D)
 val Red100 = Color(0xFFFFE4E4)
 
-// Warna khusus data makro (protein, karbo, lemak). Selain ini, semua warna diambil
-// dari MaterialTheme.colorScheme.
+// Warna khusus data makro (protein, karbo, lemak).
 val ProteinColor = Color(0xFF3B82F6)
 val CarbsColor = Color(0xFFF59E0B)
 val FatColor = Color(0xFFA855F7)
+
+// Pengecualian warna IMT yang disetujui: kategori pada skala dan legenda.
+// Teks dan penanda tetap memakai onSurface agar kontras di kedua tema.
+val BmiUnderweightColor = Color(0xFF0284C7)
+val BmiNormalColor = Green600
+val BmiOverweightColor = Color(0xFFD97706)
+val BmiObesityColor = Color(0xFFDC2626)
 
 // Mode gelap
 val DarkCanvas = Color(0xFF0C1410)
